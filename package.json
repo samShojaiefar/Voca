@@ -1,0 +1,47 @@
+{
+  "name": "voca",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"bun run next:dev\" \"bun run electron:dev\"",
+    "next:dev": "next dev",
+    "electron:dev": "wait-on http://localhost:3000 && electron electron/main.js",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "next": "16.3.5",
+    "nodejs-whisper": "^0.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "uiohook-napi": "^1.5.5",
+    "vosk": "^0.3.39"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "tsx": "^4.20.5",
+    "typescript": "^5",
+    "wait-on": "^9.1.0"
+  },
+  "build": {
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "icon": "build/icon.icns"
+    }
+  }
+}

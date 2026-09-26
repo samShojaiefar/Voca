@@ -1,0 +1,122 @@
+/* [project]/src/app/globals.css [app-client] (css) */
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+.container {
+  justify-content: center;
+  width: 100%;
+  height: 20px;
+  animation: .35s ease-out voice-topbar-in;
+  display: flex;
+}
+
+@keyframes voice-topbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.voice-topbar {
+  -webkit-backdrop-filter: blur(60px);
+  z-index: 9999;
+  -webkit-app-region: no-drag;
+  background-color: #000;
+  border-radius: 0 0 8px 8px;
+  justify-content: center;
+  align-items: center;
+  width: 200px;
+  height: 5px;
+  transition: all .2s;
+  display: flex;
+}
+
+.voice-topbar:hover {
+  height: 10px;
+  transition: all .2s;
+}
+
+.alt-voice-topbar {
+  -webkit-backdrop-filter: blur(60px);
+  z-index: 9999;
+  -webkit-app-region: no-drag;
+  background-color: #000;
+  border-radius: 0 0 16px 16px;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 280px;
+  height: 40px;
+  padding: 0 18px;
+  transition: all .2s;
+  display: flex;
+}
+
+.voice-capsule {
+  background: linear-gradient(to right, #d2deff 25%, #c7d6ff 50%, #9eafff 75% 100%);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  transition: all .2s;
+}
+
+.voice-status {
+  color: #9eafff;
+  white-space: nowrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+}
+
+.voice-listening-dot {
+  background: #9eafff;
+  border-radius: 50%;
+  width: 8px;
+  height: 8px;
+  animation: 1s ease-in-out infinite voice-listening-pulse;
+}
+
+.voice-listening-dot-processing {
+  background: #ffcf6b;
+  animation: .7s ease-in-out infinite voice-listening-pulse;
+}
+
+@keyframes voice-listening-pulse {
+  0%, 100% {
+    opacity: .3;
+    transform: scale(.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.voice-result-text {
+  color: #f4f5f7;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+/*# sourceMappingURL=src_app_globals_css_1igg3k2._.single.css.map*/
