@@ -1,0 +1,146 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  box-sizing: border-box;
+  user-select: none !important;
+}
+
+.container {
+  width: 100%;
+  height: 20px;
+  display: flex;
+  justify-content: center;
+  animation: voice-topbar-in 0.35s ease-out;
+}
+
+@keyframes voice-topbar-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* =========================================
+   VOICEOS TOP BAR
+   ========================================= */
+
+.voice-topbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: 0.2s;
+
+  height: 5px;
+
+  background-color: #000000;
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+  border-radius: 0 0 8px 8px;
+
+  z-index: 9999;
+  width: 200px;
+  /* Electron window dragging */
+  -webkit-app-region: no-drag;
+  &:hover {
+    transition: 0.2s;
+    height: 10px;
+  }
+}
+
+.alt-voice-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+
+  height: 40px;
+  background-color: #000000;
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+
+  border-radius: 0 0 16px 16px;
+
+  z-index: 9999;
+  width: 280px;
+  padding: 0 18px;
+  gap: 8px;
+  /* Electron window dragging */
+  -webkit-app-region: no-drag;
+}
+/* =========================================
+   CENTER CAPSULE
+   ========================================= */
+
+.voice-capsule {
+  transition: 0.2s;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(
+    to right,
+    #d2deff 25%,
+    #c7d6ff 50%,
+    #9eafff 75%,
+    #9eafff 100%
+  );
+  border-radius: 50%;
+}
+
+/* =========================================
+   IN-NOTCH STATUS / RESULT TEXT
+   ========================================= */
+
+.voice-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: #9eafff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.voice-listening-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9eafff;
+  animation: voice-listening-pulse 1s ease-in-out infinite;
+}
+
+.voice-listening-dot-processing {
+  background: #ffcf6b;
+  animation: voice-listening-pulse 0.7s ease-in-out infinite;
+}
+
+@keyframes voice-listening-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.voice-result-text {
+  color: #f4f5f7;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
