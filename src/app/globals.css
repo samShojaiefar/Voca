@@ -106,6 +106,8 @@ body {
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
+  font-family: Arial, Helvetica, sans-serif;
+
 }
 
 .voice-listening-dot {
@@ -114,6 +116,8 @@ body {
   border-radius: 50%;
   background: #9eafff;
   animation: voice-listening-pulse 1s ease-in-out infinite;
+  font-family: Arial, Helvetica, sans-serif;
+
 }
 
 .voice-listening-dot-processing {
@@ -143,4 +147,5 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+  font-family: Arial, Helvetica, sans-serif;
 }

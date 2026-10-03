@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, session } = require("electron");
+const { app, BrowserWindow, screen, ipcMain, session, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -117,6 +117,17 @@ const KEY_OPTIONS = [
     label: "Tab",
     codes: [UiohookKey.Tab],
   },
+  // NEW: hold two keys together
+  {
+    id: "alt+shift",
+    label: "Alt + Shift",
+    codes: [
+      UiohookKey.Alt,
+      UiohookKey.AltRight,
+      UiohookKey.Shift,
+      UiohookKey.ShiftRight,
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -173,6 +184,12 @@ let setupWin = null;
 // ---------------------------------------------------------------------------
 
 function getKeyCodes(keyId) {
+  // NEW: combo such as "alt+shift" or "keycode:56+keycode:42" —
+  // returns every key code that belongs to the combo.
+  if (keyId.includes("+")) {
+    return [...new Set(getKeyGroups(keyId).flat())];
+  }
+
   // Dynamically detected key
   if (keyId.startsWith("keycode:")) {
     const code = Number(keyId.replace("keycode:", ""));
@@ -192,7 +209,67 @@ function getKeyCodes(keyId) {
     : KEY_OPTIONS[0].codes;
 }
 
+// ---------------------------------------------------------------------------
+// NEW: combo support (e.g. hold Alt + Shift together)
+// A trigger is a list of "groups". The trigger is held when at least one key
+// from EVERY group is down. A single key is just one group; Alt + Shift is
+// two groups: [Alt, AltRight] and [Shift, ShiftRight].
+// ---------------------------------------------------------------------------
+
+const MODIFIER_PAIRS = [
+  [UiohookKey.Alt, UiohookKey.AltRight],
+  [UiohookKey.Ctrl, UiohookKey.CtrlRight],
+  [UiohookKey.Shift, UiohookKey.ShiftRight],
+  [UiohookKey.Meta, UiohookKey.MetaRight],
+];
+
+// Make a combo work with either the left or right modifier key.
+function withModifierSiblings(codes) {
+  const out = new Set(codes);
+
+  for (const pair of MODIFIER_PAIRS) {
+    if (codes.some((c) => pair.includes(c))) {
+      pair.forEach((c) => out.add(c));
+    }
+  }
+
+  return [...out];
+}
+
+function getKeyGroups(keyId) {
+  const parts = keyId.split("+");
+
+  return parts.map((part) => {
+    const codes = getKeyCodes(part);
+
+    return parts.length > 1 ? withModifierSiblings(codes) : codes;
+  });
+}
+
+function isValidKeyId(keyId) {
+  if (typeof keyId !== "string" || !keyId) return false;
+
+  return keyId.split("+").every((part) =>
+    part.startsWith("keycode:")
+      ? !Number.isNaN(Number(part.replace("keycode:", "")))
+      : KEY_OPTIONS.some((key) => key.id === part)
+  );
+}
+
+// Keys that are physically down right now (updated by the global hook).
+const pressedKeys = new Set();
+
+function isTriggerHeld() {
+  return activeKeyGroups.every((group) =>
+    group.some((code) => pressedKeys.has(code))
+  );
+}
+
 let activeKeyCodes = getKeyCodes(
+  config.triggerKey
+);
+
+let activeKeyGroups = getKeyGroups(
   config.triggerKey
 );
 
@@ -369,11 +446,17 @@ function createSetupWindow() {
 function completeSetupAndLaunchNotch(
   keyId
 ) {
-  if (keyId) {
+  // NEW: only accept ids we understand. The setup page sends a display
+  // label (e.g. "right alt") here, which used to silently overwrite a
+  // captured key and fall back to Alt.
+  if (keyId && isValidKeyId(keyId)) {
     config.triggerKey = keyId;
 
     activeKeyCodes =
       getKeyCodes(keyId);
+
+    activeKeyGroups =
+      getKeyGroups(keyId);
   }
 
   config.setupComplete = true;
@@ -398,10 +481,12 @@ function completeSetupAndLaunchNotch(
 
 let keyCaptureActive = false;
 let keyCaptureWindow = null;
+let captureKeys = []; // NEW: every key held during capture (supports combos)
 
 function startKeyCapture(window) {
   keyCaptureActive = true;
   keyCaptureWindow = window;
+  captureKeys = [];
 
   console.log(
     "[Voca] Key capture started"
@@ -445,6 +530,9 @@ function setupIpc() {
 
       activeKeyCodes =
         getKeyCodes(keyId);
+
+      activeKeyGroups =
+        getKeyGroups(keyId);
 
       saveConfig(config);
 
@@ -525,6 +613,290 @@ function setupIpc() {
 }
 
 // ---------------------------------------------------------------------------
+// NEW: Write the transcript into whatever input is currently focused
+// (browser, Word, Notepad, VS Code...). The notch window is created with
+// focusable:false, so focus never leaves the user's app — we just put the
+// text on the clipboard and simulate Ctrl+V / Cmd+V. Clipboard paste is
+// used instead of simulated key-by-key typing because it is instant and
+// handles Persian / Unicode / emoji correctly.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// NEW: spoken emoji. Say "emoji" + a name from the list below and the
+// transcript gets the emoji instead:
+//     "hello, emoji heart"  ->  "hello, ❤️"
+// Names are matched case-insensitively and the longest name wins, so
+// "emoji broken heart" gives 💔 and not ❤️. To add your own, just add a
+// line:  "your name": "😀",
+// ---------------------------------------------------------------------------
+
+const EMOJI_LIST = {
+  // --- faces ---
+  "smile": "😊", "happy": "😊", "smiley": "😃", "big smile": "😄",
+  "grin": "😁", "laugh": "😂", "laughing": "😂", "joy": "😂", "lol": "😂",
+  "rofl": "🤣", "wink": "😉", "cool": "😎", "sunglasses": "😎",
+  "heart eyes": "😍", "in love": "😍", "kiss": "😘", "kissing": "😘",
+  "cry": "😢", "sad": "😢", "crying": "😭", "sob": "😭",
+  "angry": "😠", "mad": "😡", "think": "🤔", "thinking": "🤔",
+  "surprised": "😮", "shocked": "😱", "scream": "😱",
+  "sleepy": "😴", "sleep": "😴", "tired": "😫", "sick": "🤒",
+  "nerd": "🤓", "party face": "🥳", "hug": "🤗", "shy": "😳",
+  "embarrassed": "😳", "confused": "😕", "neutral": "😐",
+  "silly": "🤪", "crazy": "🤪", "tongue": "😛", "sweat": "😅",
+  "relieved": "😌", "pleading": "🥺", "skull": "💀", "ghost": "👻",
+  "clown": "🤡", "poop": "💩", "devil": "😈", "angel": "😇",
+  "robot": "🤖", "alien": "👽", "monkey": "🐵",
+
+  // --- hearts ---
+  "heart": "❤️", "red heart": "❤️", "love": "❤️", "broken heart": "💔",
+  "blue heart": "💙", "green heart": "💚", "yellow heart": "💛",
+  "purple heart": "💜", "black heart": "🖤", "white heart": "🤍",
+  "orange heart": "🧡", "pink heart": "🩷", "sparkling heart": "💖",
+  "two hearts": "💕", "kiss mark": "💋",
+
+  // --- hands & gestures ---
+  "thumbs up": "👍", "like": "👍", "thumbs down": "👎", "dislike": "👎",
+  "ok": "👌", "okay": "👌", "clap": "👏", "applause": "👏",
+  "pray": "🙏", "thanks": "🙏", "thank you": "🙏", "please": "🙏",
+  "folded hands": "🙏", "wave": "👋", "muscle": "💪", "strong": "💪",
+  "fist": "✊", "peace": "✌️", "victory": "✌️",
+  "crossed fingers": "🤞", "fingers crossed": "🤞",
+  "point up": "☝️", "point right": "👉", "point left": "👈",
+  "point down": "👇", "raised hands": "🙌", "handshake": "🤝",
+  "writing hand": "✍️", "eyes": "👀", "brain": "🧠",
+
+  // --- symbols ---
+  "fire": "🔥", "star": "⭐", "sparkles": "✨", "hundred": "💯",
+  "100": "💯", "check": "✅", "check mark": "✅", "cross": "❌", "x": "❌",
+  "warning": "⚠️", "question": "❓", "exclamation": "❗",
+  "lightning": "⚡", "zap": "⚡", "boom": "💥", "idea": "💡",
+  "light bulb": "💡", "bomb": "💣", "rocket": "🚀",
+  "party popper": "🎉", "confetti": "🎉", "party": "🎉",
+  "celebration": "🎉", "gift": "🎁", "trophy": "🏆", "medal": "🏅",
+  "crown": "👑", "money": "💰", "dollar": "💵", "diamond": "💎",
+  "lock": "🔒", "key": "🔑", "bell": "🔔", "pin": "📌",
+  "clock": "⏰", "hourglass": "⌛", "calendar": "📅",
+
+  // --- objects ---
+  "phone": "📱", "computer": "💻", "laptop": "💻", "email": "📧",
+  "mail": "✉️", "book": "📖", "pencil": "✏️", "memo": "📝",
+  "folder": "📁", "camera": "📷", "video camera": "🎥",
+  "music": "🎵", "microphone": "🎤", "headphones": "🎧",
+  "game": "🎮", "tv": "📺", "car": "🚗", "plane": "✈️",
+  "ship": "🚢", "bike": "🚲", "house": "🏠",
+
+  // --- nature & weather ---
+  "earth": "🌍", "world": "🌍", "sun": "☀️", "moon": "🌙",
+  "cloud": "☁️", "rain": "🌧️", "snow": "❄️", "snowflake": "❄️",
+  "rainbow": "🌈", "umbrella": "☔", "ocean": "🌊", "water wave": "🌊",
+  "rose": "🌹", "flower": "🌸", "sunflower": "🌻", "tree": "🌳",
+  "plant": "🌱", "cactus": "🌵",
+
+  // --- food & drink ---
+  "pizza": "🍕", "burger": "🍔", "fries": "🍟", "cake": "🎂",
+  "coffee": "☕", "tea": "🍵", "beer": "🍺", "wine": "🍷",
+  "apple": "🍎", "banana": "🍌", "strawberry": "🍓",
+  "watermelon": "🍉", "cookie": "🍪", "ice cream": "🍦",
+  "popcorn": "🍿", "taco": "🌮", "egg": "🥚", "bread": "🍞",
+
+  // --- animals ---
+  "dog": "🐶", "cat": "🐱", "lion": "🦁", "tiger": "🐯", "bear": "🐻",
+  "panda": "🐼", "rabbit": "🐰", "mouse": "🐭", "cow": "🐮", "pig": "🐷",
+  "frog": "🐸", "fish": "🐟", "bird": "🐦", "butterfly": "🦋",
+  "bee": "🐝", "unicorn": "🦄", "snake": "🐍", "turtle": "🐢",
+  "penguin": "🐧", "horse": "🐴", "elephant": "🐘", "chicken": "🐔",
+
+  // --- sports ---
+  "football": "⚽", "soccer": "⚽", "basketball": "🏀",
+};
+
+// Built once: "emoji" (or "emojis") + optional filler + a name from the list.
+// Whisper adds its own punctuation, so commas / periods around the name
+// are tolerated and a trailing "." or "," is swallowed with the emoji.
+const EMOJI_REGEX = (() => {
+  const names = Object.keys(EMOJI_LIST)
+    .sort((a, b) => b.length - a.length)
+    .map((name) =>
+      name
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/ /g, "[\\s-]+")
+    );
+
+  return new RegExp(
+    "\\bemojis?[\\s,.:;!-]+" +
+      "(?:(?:of\\s+)?(?:a|an|the)\\s+)?" +
+      "(" + names.join("|") + ")\\b[.,]?",
+    "gi"
+  );
+})();
+
+function applyEmojiCommands(text) {
+  return text.replace(EMOJI_REGEX, (match, name) => {
+    const key = name.toLowerCase().replace(/[\s-]+/g, " ");
+
+    return EMOJI_LIST[key] || match;
+  });
+}
+
+// NEW: true while Voca itself is injecting keystrokes (paste / menu mask).
+// The global hook below ignores those synthetic events, otherwise a
+// trigger such as Ctrl would "press itself" and start a recording.
+let isInjecting = false;
+
+// NEW (Windows): tapping Alt (or Win) alone and releasing it makes Windows
+// activate the target app's menu bar (or the Start menu). By the time
+// whisper finishes, that menu mode would swallow our Ctrl+V. Tapping Ctrl
+// while the trigger is held "uses up" the key press so the menu never opens.
+function maskMenuActivation() {
+  if (process.platform !== "win32") return;
+  if (typeof uIOhook.keyTap !== "function") return;
+
+  const menuKeys = [
+    UiohookKey.Alt,
+    UiohookKey.AltRight,
+    UiohookKey.Meta,
+    UiohookKey.MetaRight,
+  ];
+
+  if (!activeKeyCodes.some((code) => menuKeys.includes(code))) return;
+
+  isInjecting = true;
+
+  try {
+    uIOhook.keyTap(UiohookKey.Ctrl);
+  } catch (err) {
+    console.error("[Voca] Menu mask failed:", err);
+  }
+
+  setTimeout(() => {
+    isInjecting = false;
+  }, 120);
+}
+
+// NEW: put the user's original clipboard back. Never throws — a failed
+// restore must not become an uncaught exception.
+function restoreClipboard(text, image) {
+  try {
+    if (typeof text === "string" && text) {
+      clipboard.writeText(text);
+    } else if (image) {
+      clipboard.writeImage(image);
+    } else {
+      clipboard.clear();
+    }
+  } catch (err) {
+    console.error("[Voca] Could not restore clipboard:", err);
+  }
+}
+
+function typeIntoActiveApp(text) {
+  // Whisper prints markers like [BLANK_AUDIO] when it hears nothing.
+  const cleaned = text
+    .replace(/\[[A-Z_ ]+\]/g, "")
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
+
+  if (!cleaned) return;
+
+  // Trailing space so two dictations in a row don't glue together.
+  const toPaste = cleaned + " ";
+
+  // NEW: safe snapshot of the user's clipboard. readText() is not
+  // guaranteed to hand back a plain string (that caused the
+  // "Error processing argument at index 0" crash when restoring), so
+  // validate it, and keep an image if the clipboard held one instead.
+  let previousClipboard = "";
+  let previousImage = null;
+
+  try {
+    const t = clipboard.readText();
+    previousClipboard = typeof t === "string" ? t : "";
+
+    if (!previousClipboard) {
+      const img = clipboard.readImage();
+      if (img && !img.isEmpty()) previousImage = img;
+    }
+  } catch (err) {
+    console.error("[Voca] Could not read clipboard:", err);
+  }
+  clipboard.writeText(toPaste);
+
+  // NEW (preferred): send Ctrl+V / Cmd+V with uiohook-napi itself. It is
+  // instant (no PowerShell / osascript / xdotool process to start) and
+  // needs no extra dependency. The spawn() code below is kept as a
+  // fallback for older uiohook-napi versions that have no keyTap().
+  if (typeof uIOhook.keyTap === "function") {
+    const pasteModifier =
+      process.platform === "darwin" ? UiohookKey.Meta : UiohookKey.Ctrl;
+
+    setTimeout(() => {
+      isInjecting = true;
+
+      try {
+        uIOhook.keyTap(UiohookKey.V, [pasteModifier]);
+      } catch (err) {
+        console.error("[Voca] keyTap paste failed:", err);
+      }
+
+      setTimeout(() => {
+        isInjecting = false;
+      }, 250);
+
+      // Let the target app read the clipboard, then restore the old one.
+      setTimeout(() => {
+        restoreClipboard(previousClipboard, previousImage);
+      }, 800);
+    }, 60);
+
+    return;
+  }
+
+  let pasteProc;
+
+  try {
+    if (process.platform === "win32") {
+      pasteProc = spawn(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-WindowStyle", "Hidden",
+          "-Command",
+          "Add-Type -AssemblyName System.Windows.Forms; " +
+            "[System.Windows.Forms.SendKeys]::SendWait('^v')",
+        ],
+        { windowsHide: true }
+      );
+    } else if (process.platform === "darwin") {
+      // Needs Accessibility permission for the app (System Settings →
+      // Privacy & Security → Accessibility).
+      pasteProc = spawn("osascript", [
+        "-e",
+        'tell application "System Events" to keystroke "v" using command down',
+      ]);
+    } else {
+      // Linux (X11): requires `xdotool` to be installed.
+      pasteProc = spawn("xdotool", ["key", "ctrl+v"]);
+    }
+  } catch (err) {
+    console.error("[Voca] Failed to simulate paste:", err);
+    return;
+  }
+
+  pasteProc.on("error", (err) => {
+    console.error("[Voca] Paste helper error:", err);
+  });
+
+  pasteProc.on("close", () => {
+    // Give the target app a moment to read the clipboard, then put the
+    // user's original clipboard content back.
+    setTimeout(() => {
+      restoreClipboard(previousClipboard, previousImage);
+    }, 300);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Whisper transcription (transcription only — no recording here)
 // ---------------------------------------------------------------------------
 
@@ -586,12 +958,24 @@ function transcribeAudio(wavPath) {
       return;
     }
 
-    const text = output.trim();
+    const rawText = output.trim();
+
+    // NEW: turn spoken "emoji heart" into ❤️ before showing / pasting it.
+    const text = applyEmojiCommands(rawText);
+
+    if (text !== rawText) {
+      console.log("[Voca] Raw transcript (before emoji):", rawText);
+    }
 
     console.log(`[Voca] Transcript (${elapsed}s):`, text);
 
     if (notchWin && !notchWin.isDestroyed()) {
       notchWin.webContents.send("transcription-result", text);
+    }
+
+    // NEW: also write the text into the currently focused input.
+    if (text) {
+      typeIntoActiveApp(text);
     }
   });
 
@@ -617,23 +1001,23 @@ function setupKeyboard() {
   uIOhook.on(
     "keydown",
     (event) => {
+      // NEW: ignore keys that Voca injected itself
+      if (isInjecting) return;
+
       // -----------------------------------------------------
       // SETUP KEY CAPTURE MODE
       // -----------------------------------------------------
 
+      // NEW: remember which keys are physically held (needed for combos)
+      pressedKeys.add(event.keycode);
+
       if (keyCaptureActive) {
-        const keycode = event.keycode;
-
-        const keyId = `keycode:${event.keycode}`;
-        const label = getKeyLabel(event.keycode);
-
-        keyCaptureWindow.send("key-detected", {
-          id: keyId,
-          label: label,
-        });
-
-        // Only detect one key press
-        keyCaptureActive = false;
+        // NEW: collect every key held during capture. The result is sent
+        // on key RELEASE (see keyup below) so a combo like Alt + Shift
+        // can be detected as one trigger.
+        if (!captureKeys.includes(event.keycode)) {
+          captureKeys.push(event.keycode);
+        }
 
         return;
       }
@@ -655,6 +1039,11 @@ function setupKeyboard() {
         return;
       }
 
+      // NEW: for a combo (e.g. Alt + Shift) wait until every key is held
+      if (!isTriggerHeld()) {
+        return;
+      }
+
       keyIsDown = true;
 
       altHoldTimer = setTimeout(() => {
@@ -663,6 +1052,9 @@ function setupKeyboard() {
           notchWin &&
           !notchWin.isDestroyed()
         ) {
+          // NEW: stop Alt / Win from opening the target app's menu
+          maskMenuActivation();
+
           // Renderer listens for this and starts capturing
           // mic audio via getUserMedia.
           notchWin.webContents.send(
@@ -681,11 +1073,46 @@ function setupKeyboard() {
   uIOhook.on(
     "keyup",
     (event) => {
+      // NEW: ignore keys that Voca injected itself
+      if (isInjecting) return;
+
+      // NEW: forget the released key
+      pressedKeys.delete(event.keycode);
+
+      // NEW: finish key capture (single key or combo) on release
+      if (
+        keyCaptureActive &&
+        keyCaptureWindow &&
+        captureKeys.length > 0
+      ) {
+        const keyId = captureKeys
+          .map((code) => `keycode:${code}`)
+          .join("+");
+        const label = captureKeys.map(getKeyLabel).join(" + ");
+
+        keyCaptureWindow.send("key-detected", {
+          id: keyId,
+          label: label,
+        });
+
+        // Only detect one key / combo
+        captureKeys = [];
+        keyCaptureActive = false;
+
+        return;
+      }
+
       if (
         !activeKeyCodes.includes(
           event.keycode
         )
       ) {
+        return;
+      }
+
+      // NEW: only react if the trigger (single key or the full combo)
+      // was actually active
+      if (!keyIsDown) {
         return;
       }
 

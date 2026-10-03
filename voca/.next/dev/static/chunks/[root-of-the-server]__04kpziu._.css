@@ -215,6 +215,7 @@ html, body {
   white-space: nowrap;
   align-items: center;
   gap: 8px;
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 12px;
   font-weight: 500;
   display: flex;
@@ -225,6 +226,7 @@ html, body {
   border-radius: 50%;
   width: 8px;
   height: 8px;
+  font-family: Arial, Helvetica, sans-serif;
   animation: 1s ease-in-out infinite voice-listening-pulse;
 }
 
@@ -251,6 +253,7 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 13px;
   line-height: 1.4;
   overflow: hidden;
