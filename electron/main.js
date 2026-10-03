@@ -68,7 +68,7 @@ const WHISPER_BIN_PATH = resolveWhisperBinPath();
 const WHISPER_MODEL_PATH = path.join(
   WHISPER_DIR,
   "models",
-  "ggml-small.bin"
+  "ggml-tiny-q5_1.bin"
 );
 
 if (!fs.existsSync(WHISPER_MODEL_PATH)) {
@@ -1178,3 +1178,4 @@ app.on(
     }
   }
 );
+
