@@ -65,17 +65,136 @@ function resolveWhisperBinPath() {
 const WHISPER_BIN_PATH = resolveWhisperBinPath();
 
 
-const WHISPER_MODEL_PATH = path.join(
-  WHISPER_DIR,
-  "models",
-  "ggml-tiny-q5_1.bin"
-);
+// ---------------------------------------------------------------------------
+// Whisper model options (user picks one during setup)
+// ---------------------------------------------------------------------------
 
-if (!fs.existsSync(WHISPER_MODEL_PATH)) {
-  console.error(
-    "[Voca] Whisper model not found at:",
-    WHISPER_MODEL_PATH
-  );
+const MODEL_OPTIONS = [
+  {
+    id: "ggml-tiny-q5_1.bin",
+    label: "Tiny (q5_1)",
+    desc: "Fastest, lowest accuracy",
+  },
+  {
+    id: "ggml-base-q5_1.bin",
+    label: "Base (q5_1)",
+    desc: "Balanced speed and accuracy",
+  },
+  {
+    id: "ggml-small.bin",
+    label: "Small",
+    desc: "Most accurate, slowest on CPU",
+  },
+];
+
+const DEFAULT_MODEL = "ggml-tiny-q5_1.bin";
+
+// ---------------------------------------------------------------------------
+// Languages: a primary language and an optional secondary one.
+//   - primary "auto": whisper detects the language itself (secondary ignored)
+//   - primary only: that language is forced (fastest, most accurate)
+//   - primary + secondary: no detection at all. One of the two is "active"
+//     and forced; the Ctrl+Shift+L hotkey switches between them.
+// ---------------------------------------------------------------------------
+
+// Hotkey that switches between the primary and secondary language.
+const LANGUAGE_SWITCH_KEY = UiohookKey.L; // used together with Ctrl + Shift
+
+const LANGUAGE_OPTIONS = [
+  { id: "auto", label: "Auto-detect" },
+  { id: "en", label: "English" },
+  { id: "fa", label: "Persian" },
+  { id: "ar", label: "Arabic" },
+  { id: "tr", label: "Turkish" },
+  { id: "es", label: "Spanish" },
+  { id: "fr", label: "French" },
+  { id: "de", label: "German" },
+  { id: "it", label: "Italian" },
+  { id: "pt", label: "Portuguese" },
+  { id: "ru", label: "Russian" },
+  { id: "uk", label: "Ukrainian" },
+  { id: "pl", label: "Polish" },
+  { id: "nl", label: "Dutch" },
+  { id: "hi", label: "Hindi" },
+  { id: "ur", label: "Urdu" },
+  { id: "zh", label: "Chinese" },
+  { id: "ja", label: "Japanese" },
+  { id: "ko", label: "Korean" },
+  { id: "he", label: "Hebrew" },
+  { id: "id", label: "Indonesian" },
+];
+
+function isValidLanguageId(id) {
+  return LANGUAGE_OPTIONS.some((l) => l.id === id);
+}
+
+function getLanguagePrefs() {
+  const primary = isValidLanguageId(config.primaryLanguage)
+    ? config.primaryLanguage
+    : "auto";
+
+  const secondary =
+    primary !== "auto" &&
+    config.secondaryLanguage &&
+    config.secondaryLanguage !== "none" &&
+    config.secondaryLanguage !== "auto" &&
+    config.secondaryLanguage !== primary &&
+    isValidLanguageId(config.secondaryLanguage)
+      ? config.secondaryLanguage
+      : null;
+
+  return { primary, secondary };
+}
+
+// The language whisper is forced to right now.
+function getActiveLanguage() {
+  const { primary, secondary } = getLanguagePrefs();
+
+  return secondary && config.activeLanguage === "secondary"
+    ? secondary
+    : primary;
+}
+
+function getLanguageLabel(id) {
+  return LANGUAGE_OPTIONS.find((l) => l.id === id)?.label || id;
+}
+
+function switchLanguage() {
+  const { secondary } = getLanguagePrefs();
+
+  let message;
+
+  if (!secondary) {
+    message = "No secondary language set";
+  } else {
+    config.activeLanguage =
+      config.activeLanguage === "secondary" ? "primary" : "secondary";
+    saveConfig(config);
+
+    message = `Language: ${getLanguageLabel(getActiveLanguage())}`;
+  }
+
+  console.log(`[Voca] ${message}`);
+
+  // Reuse the notch's result bubble as a short on-screen confirmation.
+  if (notchWin && !notchWin.isDestroyed()) {
+    notchWin.webContents.send("transcription-result", message);
+  }
+}
+
+function isValidModelId(id) {
+  return MODEL_OPTIONS.some((m) => m.id === id);
+}
+
+function getModelPath() {
+  const id = isValidModelId(config.model) ? config.model : DEFAULT_MODEL;
+  const modelPath = path.join(WHISPER_DIR, "models", id);
+
+  if (!fs.existsSync(modelPath)) {
+    console.error("[Voca] Whisper model not found at:", modelPath);
+  }
+
+  return modelPath;
 }
 
 process.on("uncaughtException", (err) => {
@@ -136,6 +255,10 @@ const KEY_OPTIONS = [
 
 const DEFAULT_CONFIG = {
   triggerKey: "alt",
+  model: DEFAULT_MODEL,
+  primaryLanguage: "auto",
+  secondaryLanguage: "none",
+  activeLanguage: "primary",
   setupComplete: false,
 };
 
@@ -405,7 +528,7 @@ function createNotchWindow() {
 function createSetupWindow() {
   setupWin = new BrowserWindow({
     width: 800,
-    height: 660,
+    height: 700,
 
     resizable: false,
     frame: true,
@@ -430,10 +553,9 @@ function createSetupWindow() {
   setupWin.on("closed", () => {
     setupWin = null;
 
-    if (
-      !config.setupComplete &&
-      !notchWin
-    ) {
+    // The notch may already exist (created for the test step), so
+    // quit whenever setup was closed without being finished.
+    if (!config.setupComplete) {
       app.quit();
     }
   });
@@ -444,8 +566,13 @@ function createSetupWindow() {
 // ---------------------------------------------------------------------------
 
 function completeSetupAndLaunchNotch(
-  keyId
+  keyId,
+  modelId
 ) {
+  if (modelId && isValidModelId(modelId)) {
+    config.model = modelId;
+  }
+
   // NEW: only accept ids we understand. The setup page sends a display
   // label (e.g. "right alt") here, which used to silently overwrite a
   // captured key and fall back to Alt.
@@ -524,6 +651,64 @@ function setupIpc() {
   );
 
   ipcMain.handle(
+    "get-model-options",
+    () =>
+      MODEL_OPTIONS.map((m) => ({
+        ...m,
+        installed: fs.existsSync(
+          path.join(WHISPER_DIR, "models", m.id)
+        ),
+      }))
+  );
+
+  // The notch window (mic capture + overlay) normally only exists after
+  // setup finishes. The test step needs it earlier so dictation works.
+  ipcMain.handle(
+    "start-dictation-test",
+    () => {
+      if (!notchWin || notchWin.isDestroyed()) {
+        createNotchWindow();
+      }
+
+      return true;
+    }
+  );
+
+  ipcMain.handle(
+    "get-language-options",
+    () => LANGUAGE_OPTIONS
+  );
+
+  ipcMain.handle(
+    "set-language-prefs",
+    (_event, primary, secondary) => {
+      config.primaryLanguage = isValidLanguageId(primary) ? primary : "auto";
+      config.secondaryLanguage =
+        isValidLanguageId(secondary) && secondary !== "auto"
+          ? secondary
+          : "none";
+
+      config.activeLanguage = "primary";
+
+      saveConfig(config);
+
+      return config;
+    }
+  );
+
+  ipcMain.handle(
+    "set-model",
+    (_event, modelId) => {
+      if (!isValidModelId(modelId)) return config;
+
+      config.model = modelId;
+      saveConfig(config);
+
+      return config;
+    }
+  );
+
+  ipcMain.handle(
     "set-trigger-key",
     (_event, keyId) => {
       config.triggerKey = keyId;
@@ -570,11 +755,12 @@ function setupIpc() {
 
   ipcMain.handle(
     "finish-setup",
-    (_event, keyId) => {
+    (_event, keyId, modelId) => {
       stopKeyCapture();
 
       completeSetupAndLaunchNotch(
-        keyId
+        keyId,
+        modelId
       );
 
       return true;
@@ -901,15 +1087,19 @@ function typeIntoActiveApp(text) {
 // ---------------------------------------------------------------------------
 
 function transcribeAudio(wavPath) {
+  runWhisper(wavPath, getActiveLanguage());
+}
+
+function runWhisper(wavPath, lang) {
   const startedAt = Date.now();
 
-  console.log("[Voca] Transcribing with Whisper...");
+  console.log(`[Voca] Transcribing with Whisper (language: ${lang})...`);
 
   const args = [
-    "-m", WHISPER_MODEL_PATH,
+    "-m", getModelPath(),
     "-f", wavPath,
     "-nt", // no timestamps, plain text only
-    "-l", "auto", // change to "en" to force English and skip language detection
+    "-l", lang,
   ];
 
   let proc;
@@ -992,6 +1182,7 @@ function transcribeAudio(wavPath) {
 
 let altHoldTimer = null;
 let keyIsDown = false;
+let languageSwitchHeld = false;
 
 function setupKeyboard() {
   // ---------------------------------------------------------
@@ -1017,6 +1208,25 @@ function setupKeyboard() {
         // can be detected as one trigger.
         if (!captureKeys.includes(event.keycode)) {
           captureKeys.push(event.keycode);
+        }
+
+        return;
+      }
+
+      // -----------------------------------------------------
+      // LANGUAGE SWITCH HOTKEY (Ctrl + Shift + L)
+      // -----------------------------------------------------
+
+      if (
+        event.keycode === LANGUAGE_SWITCH_KEY &&
+        (pressedKeys.has(UiohookKey.Ctrl) ||
+          pressedKeys.has(UiohookKey.CtrlRight)) &&
+        (pressedKeys.has(UiohookKey.Shift) ||
+          pressedKeys.has(UiohookKey.ShiftRight))
+      ) {
+        if (!languageSwitchHeld) {
+          languageSwitchHeld = true;
+          switchLanguage();
         }
 
         return;
@@ -1078,6 +1288,10 @@ function setupKeyboard() {
 
       // NEW: forget the released key
       pressedKeys.delete(event.keycode);
+
+      if (event.keycode === LANGUAGE_SWITCH_KEY) {
+        languageSwitchHeld = false;
+      }
 
       // NEW: finish key capture (single key or combo) on release
       if (
@@ -1178,4 +1392,3 @@ app.on(
     }
   }
 );
-

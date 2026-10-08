@@ -39,10 +39,39 @@ contextBridge.exposeInMainWorld(
         keyId
       ),
 
-    finishSetup: (keyId) =>
+    getModelOptions: () =>
+      ipcRenderer.invoke(
+        "get-model-options"
+      ),
+
+    startDictationTest: () =>
+      ipcRenderer.invoke(
+        "start-dictation-test"
+      ),
+
+    getLanguageOptions: () =>
+      ipcRenderer.invoke(
+        "get-language-options"
+      ),
+
+    setLanguagePrefs: (primary, secondary) =>
+      ipcRenderer.invoke(
+        "set-language-prefs",
+        primary,
+        secondary
+      ),
+
+    setModel: (modelId) =>
+      ipcRenderer.invoke(
+        "set-model",
+        modelId
+      ),
+
+    finishSetup: (keyId, modelId) =>
       ipcRenderer.invoke(
         "finish-setup",
-        keyId
+        keyId,
+        modelId
       ),
 
     // -------------------------------------------------------

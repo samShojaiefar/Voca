@@ -1,10 +1,24 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import logo from "@/app/assets/logo2.svg";
 import "./setup.css"
 type DetectedKey = {
+  id: string;
+  label: string;
+};
+
+type ModelOption = {
+  id: string;
+  label: string;
+  desc: string;
+  installed: boolean;
+};
+
+const DEFAULT_MODEL = "ggml-tiny-q5_1.bin";
+
+type LanguageOption = {
   id: string;
   label: string;
 };
@@ -20,8 +34,17 @@ declare global {
     voiceOS: {
       getConfig: () => Promise<{
         triggerKey: string;
+        model?: string;
+        primaryLanguage?: string;
+        secondaryLanguage?: string;
         setupComplete: boolean;
       }>;
+
+      getModelOptions: () => Promise<ModelOption[]>;
+      setModel: (modelId: string) => Promise<unknown>;
+      getLanguageOptions: () => Promise<LanguageOption[]>;
+      setLanguagePrefs: (primary: string, secondary: string) => Promise<unknown>;
+      startDictationTest: () => Promise<boolean>;
 
       getPermissionStatus: () => Promise<PermissionStatus>;
       openAccessibilitySettings: () => Promise<boolean>;
@@ -32,7 +55,7 @@ declare global {
         keyId: string
       ) => Promise<{ triggerKey: string; setupComplete: boolean }>;
 
-      finishSetup: (keyId: string) => Promise<boolean>;
+      finishSetup: (keyId: string, modelId?: string) => Promise<boolean>;
 
       startKeyCapture: (
         callback: (key: DetectedKey) => void
@@ -54,6 +77,8 @@ type Step =
   | "permissions"
   | "current-key"
   | "change-key"
+  | "model"
+  | "language"
   | "test"
   | "done";
 
@@ -64,6 +89,8 @@ const DOT_STEPS: Step[] = [
   "welcome",
   "permissions",
   "current-key",
+  "model",
+  "language",
   "test",
 ];
 
@@ -87,7 +114,15 @@ export default function SetupPage() {
   const [permissionStatus, setPermissionStatus] =
     useState<PermissionStatus | null>(null);
 
-  const [testActive, setTestActive] = useState(false);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [model, setModel] = useState<string>(DEFAULT_MODEL);
+
+  const [languageOptions, setLanguageOptions] = useState<LanguageOption[]>([]);
+  const [primaryLang, setPrimaryLang] = useState<string>("auto");
+  const [secondaryLang, setSecondaryLang] = useState<string>("none");
+
+  const [testText, setTestText] = useState("");
+  const testInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // -------------------------------------------------------------------------
   // Load existing config
@@ -100,6 +135,30 @@ export default function SetupPage() {
 
         if (config?.triggerKey) {
           setCurrentKey(config.triggerKey.toUpperCase());
+        }
+
+        if (config?.model) {
+          setModel(config.model);
+        }
+
+        if (config?.primaryLanguage) {
+          setPrimaryLang(config.primaryLanguage);
+        }
+
+        if (config?.secondaryLanguage) {
+          setSecondaryLang(config.secondaryLanguage);
+        }
+
+        const langOptions = await window.voiceOS?.getLanguageOptions?.();
+
+        if (langOptions) {
+          setLanguageOptions(langOptions);
+        }
+
+        const options = await window.voiceOS?.getModelOptions?.();
+
+        if (options) {
+          setModels(options);
         }
       } catch (error) {
         console.error("Failed to load Voca config:", error);
@@ -166,18 +225,18 @@ export default function SetupPage() {
   }, [step]);
 
   // -------------------------------------------------------------------------
-  // Live "hold your key" feedback on the test step
+  // Test step: start the dictation overlay and focus the input so the
+  // pasted transcript lands in it
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    if (step !== "test") {
-      setTestActive(false);
-      return;
-    }
+    if (step !== "test") return;
 
-    window.voiceOS?.onAltState?.((isDown) => {
-      setTestActive(isDown);
-    });
+    window.voiceOS?.startDictationTest?.();
+
+    const t = setTimeout(() => testInputRef.current?.focus(), 150);
+
+    return () => clearTimeout(t);
   }, [step]);
 
   // -------------------------------------------------------------------------
@@ -193,7 +252,7 @@ export default function SetupPage() {
       await window.voiceOS?.setTriggerKey?.(selectedKey.id);
 
       setCurrentKey(selectedKey.label.toUpperCase());
-      setStep("test");
+      setStep("model");
     } catch (error) {
       console.error("Failed to save trigger key:", error);
     } finally {
@@ -202,11 +261,61 @@ export default function SetupPage() {
   }
 
   // -------------------------------------------------------------------------
-  // Finish without changing key — move on to the test step
+  // Finish without changing key — move on to the model step
   // -------------------------------------------------------------------------
 
   function handleContinueWithCurrentKey() {
-    setStep("test");
+    setStep("model");
+  }
+
+  // -------------------------------------------------------------------------
+  // Model step -> test step. Save the model now so the test uses it.
+  // -------------------------------------------------------------------------
+
+  async function handleContinueFromModel() {
+    if (saving) return;
+
+    setSaving(true);
+
+    try {
+      await window.voiceOS?.setModel?.(model);
+
+      setStep("language");
+    } catch (error) {
+      console.error("Failed to save model:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Language step: one primary language (or Auto) and an optional
+  // secondary language. The secondary can't be the primary, and is
+  // ignored when the primary is Auto.
+  // -------------------------------------------------------------------------
+
+  function choosePrimary(id: string) {
+    setPrimaryLang(id);
+
+    if (id === "auto" || id === secondaryLang) {
+      setSecondaryLang("none");
+    }
+  }
+
+  async function handleContinueFromLanguage() {
+    if (saving) return;
+
+    setSaving(true);
+
+    try {
+      await window.voiceOS?.setLanguagePrefs?.(primaryLang, secondaryLang);
+
+      setStep("test");
+    } catch (error) {
+      console.error("Failed to save languages:", error);
+    } finally {
+      setSaving(false);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -219,7 +328,7 @@ export default function SetupPage() {
     setSaving(true);
 
     try {
-      await window.voiceOS?.finishSetup?.(currentKey.toLowerCase());
+      await window.voiceOS?.finishSetup?.(currentKey.toLowerCase(), model);
 
       setStep("done");
     } catch (error) {
@@ -533,7 +642,163 @@ export default function SetupPage() {
         )}
 
         {/* ================================================================
-            STEP 5 — TEST IT
+            STEP 5 — CHOOSE MODEL
+        ================================================================= */}
+
+        {step === "model" && (
+          <>
+            <h1 className="setup-title">
+              Choose a model
+            </h1>
+
+            <p className="setup-subtitle">
+              Smaller models are faster, larger ones are more accurate.
+            </p>
+
+            <div className="model-list">
+              {models.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={!m.installed}
+                  className={
+                    "model-option" +
+                    (model === m.id ? " model-option-selected" : "") +
+                    (!m.installed ? " model-option-missing" : "")
+                  }
+                  onClick={() => setModel(m.id)}
+                >
+                  <span className="model-info">
+                    <span className="model-name">{m.label}</span>
+                    <span className="model-desc">
+                      {m.installed ? m.desc : "Not installed"}
+                    </span>
+                  </span>
+
+                  <span className="model-radio" />
+                </button>
+              ))}
+            </div>
+
+            <div className="step-actions">
+              <button
+                type="button"
+                className="back-btn"
+                onClick={() => setStep("current-key")}
+                disabled={saving}
+              >
+                ← Back
+              </button>
+
+              <button
+                type="button"
+                className="finish-btn"
+                onClick={handleContinueFromModel}
+                disabled={saving || !models.some((m) => m.id === model && m.installed)}
+              >
+                {saving ? "Saving…" : "Continue →"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ================================================================
+            STEP 6 — LANGUAGES
+        ================================================================= */}
+
+        {step === "language" && (
+          <>
+            <h1 className="setup-title">
+              Choose languages
+            </h1>
+
+            <p className="setup-subtitle">
+              Voca uses your primary language. Add a secondary language and
+              press Ctrl + Shift + L any time to switch between the two.
+            </p>
+
+            <p className="lang-section-title">Primary language</p>
+
+            <div className="lang-list">
+              {languageOptions.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  className={
+                    "lang-chip" +
+                    (primaryLang === l.id ? " lang-chip-selected" : "")
+                  }
+                  onClick={() => choosePrimary(l.id)}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+
+            <p className="lang-section-title">
+              Secondary language (optional)
+            </p>
+
+            <div
+              className={
+                "lang-list" +
+                (primaryLang === "auto" ? " lang-list-disabled" : "")
+              }
+            >
+              <button
+                type="button"
+                disabled={primaryLang === "auto"}
+                className={
+                  "lang-chip" +
+                  (secondaryLang === "none" ? " lang-chip-selected" : "")
+                }
+                onClick={() => setSecondaryLang("none")}
+              >
+                None
+              </button>
+
+              {languageOptions
+                .filter((l) => l.id !== "auto" && l.id !== primaryLang)
+                .map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    disabled={primaryLang === "auto"}
+                    className={
+                      "lang-chip" +
+                      (secondaryLang === l.id ? " lang-chip-selected" : "")
+                    }
+                    onClick={() => setSecondaryLang(l.id)}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+            </div>
+
+            <div className="step-actions">
+              <button
+                type="button"
+                className="back-btn"
+                onClick={() => setStep("model")}
+                disabled={saving}
+              >
+                ← Back
+              </button>
+
+              <button
+                type="button"
+                className="finish-btn"
+                onClick={handleContinueFromLanguage}
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "Continue →"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ================================================================
+            STEP 7 — TEST IT
         ================================================================= */}
 
         {step === "test" && (
@@ -543,37 +808,27 @@ export default function SetupPage() {
             </h1>
 
             <p className="setup-subtitle">
-              Hold <strong>{currentKey}</strong> to see Voca
-              respond.
+              Click the box, then hold <strong>{currentKey}</strong> and
+              speak. Your words will appear here.
+              {secondaryLang !== "none" && primaryLang !== "auto" && (
+                <> Press <strong>Ctrl + Shift + L</strong> to switch language.</>
+              )}
             </p>
 
-            <div className="test-hold-area">
-              <div
-                className={
-                  testActive
-                    ? "test-capsule test-capsule-active"
-                    : "test-capsule"
-                }
-              />
-
-              <span
-                className={
-                  testActive
-                    ? "test-status test-status-active"
-                    : "test-status"
-                }
-              >
-                {testActive
-                  ? "Detected — nice work!"
-                  : `Hold ${currentKey} now…`}
-              </span>
-            </div>
+            <textarea
+              ref={testInputRef}
+              className="test-input"
+              value={testText}
+              onChange={(e) => setTestText(e.target.value)}
+              placeholder="Hold your key and start talking…"
+              rows={4}
+            />
 
             <div className="step-actions">
               <button
                 type="button"
                 className="back-btn"
-                onClick={() => setStep("current-key")}
+                onClick={() => setStep("language")}
                 disabled={saving}
               >
                 ← Back
@@ -592,7 +847,7 @@ export default function SetupPage() {
         )}
 
         {/* ================================================================
-            STEP 6 — DONE
+            STEP 8 — DONE
         ================================================================= */}
 
         {step === "done" && (
