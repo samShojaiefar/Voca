@@ -236,7 +236,7 @@ __turbopack_context__.s([
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 ;
-var _s = __turbopack_context__.k.signature();
+var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature();
 "use client";
 ;
 const TARGET_SAMPLE_RATE = 16000;
@@ -306,10 +306,255 @@ function encodeWav(pcm16, sampleRate) {
     new Uint8Array(buffer, 44).set(new Uint8Array(pcm16));
     return buffer;
 }
-function Home() {
+const THEMES = {
+    // Minimal, Apple-like: pure black pill, orange mic dot, thin white
+    // waveform, iMessage-style typing dots, system font.
+    apple: {
+        visual: "bars",
+        bars: 5,
+        processing: "typing",
+        orb: true,
+        orbInResult: false,
+        label: false,
+        labels: {
+            listening: "Listening",
+            processing: "Transcribing"
+        }
+    },
+    // Glass pill, glowing orb, live voice bars.
+    glass: {
+        visual: "bars",
+        bars: 7,
+        processing: "wave",
+        orb: true,
+        orbInResult: true,
+        label: true,
+        labels: {
+            listening: "Listening",
+            processing: "Transcribing"
+        }
+    },
+    // The original look: black bar, pulsing dot, plain text.
+    classic: {
+        visual: "dots",
+        bars: 0,
+        processing: "wave",
+        orb: false,
+        orbInResult: false,
+        label: true,
+        labels: {
+            listening: "Listening…",
+            processing: "Transcribing…"
+        }
+    }
+};
+const ACTIVE_THEME = "apple";
+const THEME_STORAGE_KEY = "voca-theme";
+// How strongly a bar reacts to your voice (middle bars move the most).
+function barWeight(i, count) {
+    const mid = (count - 1) / 2;
+    return mid === 0 ? 1 : 1 - Math.abs(i - mid) / mid * 0.6;
+}
+// "emoji heart" -> only an emoji came back -> show it big with a pop.
+const EMOJI_ONLY = /^[\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\s]+$/u;
+// main.js reuses the result channel for the Ctrl+Shift+L confirmation.
+const LANGUAGE_MESSAGE = /^Language:\s*(.+)$/i;
+// ---------------------------------------------------------------------------
+// Visualizer: orb halo + bars follow the mic level (written straight to the
+// DOM every frame, so React never re-renders while you talk).
+// ---------------------------------------------------------------------------
+function Visualizer({ visual, bars: barCount, processing, mode, levelRef, rootRef }) {
     _s();
+    const barsRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])([]);
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "Visualizer.useEffect": ()=>{
+            const bars = barsRef.current;
+            if (mode !== "listening") {
+                rootRef.current?.style.setProperty("--level", "0");
+                bars.forEach({
+                    "Visualizer.useEffect": (bar)=>{
+                        if (bar) bar.style.transform = "";
+                    }
+                }["Visualizer.useEffect"]);
+                return;
+            }
+            let raf = 0;
+            let smooth = 0;
+            const tick = {
+                "Visualizer.useEffect.tick": (t)=>{
+                    const raw = Math.min(1, levelRef.current * 7);
+                    // fast attack, slow release = feels like a real level meter
+                    smooth = raw > smooth ? raw : smooth * 0.88 + raw * 0.12;
+                    const v = Math.pow(smooth, 0.6);
+                    rootRef.current?.style.setProperty("--level", v.toFixed(3));
+                    bars.forEach({
+                        "Visualizer.useEffect.tick": (bar, i)=>{
+                            if (!bar) return;
+                            const idle = 0.2 + 0.08 * Math.sin(t / 220 + i * 0.9);
+                            const wobble = 0.75 + 0.25 * Math.sin(t / 95 + i * 1.7);
+                            const h = Math.min(1, idle + v * barWeight(i, bars.length) * wobble);
+                            bar.style.transform = `scaleY(${h.toFixed(3)})`;
+                        }
+                    }["Visualizer.useEffect.tick"]);
+                    raf = requestAnimationFrame(tick);
+                }
+            }["Visualizer.useEffect.tick"];
+            raf = requestAnimationFrame(tick);
+            return ({
+                "Visualizer.useEffect": ()=>cancelAnimationFrame(raf)
+            })["Visualizer.useEffect"];
+        }
+    }["Visualizer.useEffect"], [
+        mode,
+        levelRef,
+        rootRef
+    ]);
+    if (mode === "processing" && processing === "typing") {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+            className: "notch-typing",
+            children: [
+                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {}, void 0, false, {
+                    fileName: "[project]/src/app/page.tsx",
+                    lineNumber: 254,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {}, void 0, false, {
+                    fileName: "[project]/src/app/page.tsx",
+                    lineNumber: 255,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {}, void 0, false, {
+                    fileName: "[project]/src/app/page.tsx",
+                    lineNumber: 256,
+                    columnNumber: 9
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "[project]/src/app/page.tsx",
+            lineNumber: 253,
+            columnNumber: 7
+        }, this);
+    }
+    if (visual === "dots") {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+            className: "notch-dot",
+            "data-mode": mode
+        }, void 0, false, {
+            fileName: "[project]/src/app/page.tsx",
+            lineNumber: 262,
+            columnNumber: 12
+        }, this);
+    }
+    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+        className: "notch-bars",
+        "data-mode": mode,
+        children: Array.from({
+            length: barCount
+        }, (_, i)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                className: "notch-bar",
+                style: {
+                    "--i": i
+                },
+                ref: (el)=>{
+                    barsRef.current[i] = el;
+                }
+            }, i, false, {
+                fileName: "[project]/src/app/page.tsx",
+                lineNumber: 268,
+                columnNumber: 9
+            }, this))
+    }, void 0, false, {
+        fileName: "[project]/src/app/page.tsx",
+        lineNumber: 266,
+        columnNumber: 5
+    }, this);
+}
+_s(Visualizer, "Xv70fZwXM4PW63k0N3NyVJRJ84k=");
+_c = Visualizer;
+// ---------------------------------------------------------------------------
+// Result: normal text, a language switch confirmation, or a lone emoji.
+// ---------------------------------------------------------------------------
+function ResultContent({ text, orb }) {
+    const language = text.match(LANGUAGE_MESSAGE);
+    if (language) {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+            className: "notch-content",
+            children: [
+                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                    className: "notch-tag",
+                    children: "Language"
+                }, void 0, false, {
+                    fileName: "[project]/src/app/page.tsx",
+                    lineNumber: 291,
+                    columnNumber: 9
+                }, this),
+                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                    className: "notch-result",
+                    dir: "auto",
+                    children: language[1]
+                }, void 0, false, {
+                    fileName: "[project]/src/app/page.tsx",
+                    lineNumber: 292,
+                    columnNumber: 9
+                }, this)
+            ]
+        }, void 0, true, {
+            fileName: "[project]/src/app/page.tsx",
+            lineNumber: 290,
+            columnNumber: 7
+        }, this);
+    }
+    if (EMOJI_ONLY.test(text)) {
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+            className: "notch-content notch-content-center",
+            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                className: "notch-result-emoji",
+                children: text.trim()
+            }, void 0, false, {
+                fileName: "[project]/src/app/page.tsx",
+                lineNumber: 302,
+                columnNumber: 9
+            }, this)
+        }, void 0, false, {
+            fileName: "[project]/src/app/page.tsx",
+            lineNumber: 301,
+            columnNumber: 7
+        }, this);
+    }
+    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+        className: "notch-content",
+        children: [
+            orb && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                className: "notch-orb"
+            }, void 0, false, {
+                fileName: "[project]/src/app/page.tsx",
+                lineNumber: 309,
+                columnNumber: 15
+            }, this),
+            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                className: "notch-result",
+                dir: "auto",
+                children: text
+            }, void 0, false, {
+                fileName: "[project]/src/app/page.tsx",
+                lineNumber: 310,
+                columnNumber: 7
+            }, this)
+        ]
+    }, void 0, true, {
+        fileName: "[project]/src/app/page.tsx",
+        lineNumber: 308,
+        columnNumber: 5
+    }, this);
+}
+_c1 = ResultContent;
+function Home() {
+    _s1();
     const [notchState, setNotchState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("idle");
     const [transcript, setTranscript] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
+    const [theme, setTheme] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(ACTIVE_THEME);
+    const notchRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
+    const levelRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(0);
     const audioCtxRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
     const processorRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
     const sourceRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
@@ -318,6 +563,19 @@ function Home() {
     const recordingRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(false);
     const hideTimerRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
     const processingTimeoutRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])(null);
+    // Optional live override for trying designs without editing the code.
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "Home.useEffect": ()=>{
+            try {
+                const saved = localStorage.getItem(THEME_STORAGE_KEY);
+                if (saved && THEMES[saved]) {
+                    setTheme(saved);
+                }
+            } catch  {
+            // storage unavailable — keep ACTIVE_THEME
+            }
+        }
+    }["Home.useEffect"], []);
     // Set up the mic graph once, on mount, so holding the trigger key never
     // has to wait on a getUserMedia round trip. The mic stays open but is
     // only captured into `chunksRef` while `recordingRef.current` is true.
@@ -344,8 +602,18 @@ function Home() {
                     processorRef.current = processor;
                     processor.onaudioprocess = ({
                         "Home.useEffect.initMic": (e)=>{
-                            if (!recordingRef.current) return;
-                            chunksRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+                            if (!recordingRef.current) {
+                                levelRef.current = 0;
+                                return;
+                            }
+                            const data = e.inputBuffer.getChannelData(0);
+                            // Volume (RMS) for the notch visualizer.
+                            let sum = 0;
+                            for(let i = 0; i < data.length; i++){
+                                sum += data[i] * data[i];
+                            }
+                            levelRef.current = Math.sqrt(sum / data.length);
+                            chunksRef.current.push(new Float32Array(data));
                         }
                     })["Home.useEffect.initMic"];
                     // A silent gain node keeps the graph "live" without echoing mic
@@ -409,6 +677,7 @@ function Home() {
                         // on whisper. flushAndSend() triggers transcription; the bar
                         // only collapses once the result (or lack of audio) is handled.
                         recordingRef.current = false;
+                        levelRef.current = 0;
                         setNotchState("processing");
                         const sent = flushAndSend();
                         if (!sent) {
@@ -451,11 +720,13 @@ function Home() {
                     if (hideTimerRef.current) {
                         clearTimeout(hideTimerRef.current);
                     }
+                    // The language-switch confirmation is just a quick flash.
+                    const showFor = LANGUAGE_MESSAGE.test(text) ? 1800 : 5000;
                     hideTimerRef.current = setTimeout({
                         "Home.useEffect": ()=>{
                             setNotchState("idle");
                         }
-                    }["Home.useEffect"], 5000);
+                    }["Home.useEffect"], showFor);
                 }
             }["Home.useEffect"]);
             return ({
@@ -471,70 +742,78 @@ function Home() {
             })["Home.useEffect"];
         }
     }["Home.useEffect"], []);
-    const expanded = notchState !== "idle";
+    const config = THEMES[theme] ?? THEMES[ACTIVE_THEME];
+    const live = notchState === "listening" || notchState === "processing";
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
         className: "container",
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-            className: expanded ? "alt-voice-topbar" : "voice-topbar",
+            ref: notchRef,
+            className: "notch",
+            "data-theme": theme,
+            "data-state": notchState,
             children: [
-                notchState === "listening" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                    className: "voice-status",
+                live && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                    className: "notch-content",
                     children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                            className: "voice-listening-dot"
+                        config.orb && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                            className: "notch-orb"
                         }, void 0, false, {
                             fileName: "[project]/src/app/page.tsx",
-                            lineNumber: 301,
-                            columnNumber: 13
+                            lineNumber: 542,
+                            columnNumber: 28
                         }, this),
-                        "Listening…"
-                    ]
-                }, void 0, true, {
-                    fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 300,
-                    columnNumber: 11
-                }, this),
-                notchState === "processing" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                    className: "voice-status",
-                    children: [
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                            className: "voice-listening-dot voice-listening-dot-processing"
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(Visualizer, {
+                            visual: config.visual,
+                            bars: config.bars,
+                            processing: config.processing,
+                            mode: notchState === "listening" ? "listening" : "processing",
+                            levelRef: levelRef,
+                            rootRef: notchRef
                         }, void 0, false, {
                             fileName: "[project]/src/app/page.tsx",
-                            lineNumber: 308,
+                            lineNumber: 544,
                             columnNumber: 13
                         }, this),
-                        "Transcribing…"
+                        config.label && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                            className: "notch-label",
+                            children: notchState === "listening" ? config.labels.listening : config.labels.processing
+                        }, void 0, false, {
+                            fileName: "[project]/src/app/page.tsx",
+                            lineNumber: 554,
+                            columnNumber: 15
+                        }, this)
                     ]
-                }, void 0, true, {
+                }, "live", true, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 307,
+                    lineNumber: 541,
                     columnNumber: 11
                 }, this),
-                notchState === "result" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                    className: "voice-result-text",
-                    children: transcript
-                }, void 0, false, {
+                notchState === "result" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(ResultContent, {
+                    text: transcript,
+                    orb: config.orb && config.orbInResult
+                }, "result", false, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 314,
+                    lineNumber: 564,
                     columnNumber: 11
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/src/app/page.tsx",
-            lineNumber: 298,
+            lineNumber: 534,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/src/app/page.tsx",
-        lineNumber: 297,
+        lineNumber: 533,
         columnNumber: 5
     }, this);
 }
-_s(Home, "cVb9kyFTaWWK3kblH1GaCY+ZEeo=");
-_c = Home;
-var _c;
-__turbopack_context__.k.register(_c, "Home");
+_s1(Home, "16cRevGMCAdlyerb14ghyy2OqeA=");
+_c2 = Home;
+var _c, _c1, _c2;
+__turbopack_context__.k.register(_c, "Visualizer");
+__turbopack_context__.k.register(_c1, "ResultContent");
+__turbopack_context__.k.register(_c2, "Home");
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
 }

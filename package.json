@@ -2,15 +2,18 @@
   "name": "voca",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently \"bun run next:dev\" \"bun run electron:dev\"",
     "next:dev": "next dev",
     "electron:dev": "wait-on http://localhost:3000 && electron electron/main.js",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dist": "bun run build && electron-builder --win"
   },
   "dependencies": {
+    "geist": "^1.8.2",
     "next": "16.3.5",
     "nodejs-whisper": "^0.3.1",
     "react": "19.2.8",
@@ -34,8 +37,22 @@
     "wait-on": "^9.1.0"
   },
   "build": {
+    "appId": "com.samshojaiefar.voca",
+    "productName": "Voca",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      ".next/**/*",
+      "electron/**/*",
+      "public/**/*",
+      "package.json",
+      "node_modules/**/*",
+      "!.next/cache"
+    ],
     "win": {
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "target": "nsis"
     },
     "linux": {
       "icon": "build/icon.png"

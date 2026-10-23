@@ -2,22 +2,28 @@ html,
 body {
   margin: 0;
   padding: 0;
+  background: transparent;
 }
 
 * {
   box-sizing: border-box;
   user-select: none !important;
 }
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-pixel: var(--font-geist-pixel-square);
+}
 
 .container {
   width: 100%;
-  height: 20px;
   display: flex;
   justify-content: center;
-  animation: voice-topbar-in 0.35s ease-out;
+  align-items: flex-start;
+  animation: notch-drop-in 0.35s ease-out;
 }
 
-@keyframes voice-topbar-in {
+@keyframes notch-drop-in {
   from {
     transform: translateY(-100%);
     opacity: 0;
@@ -28,104 +34,168 @@ body {
   }
 }
 
-/* =========================================
-   VOICEOS TOP BAR
-   ========================================= */
+/* =========================================================================
+   NOTCH — SHARED LAYOUT
+   Everything here reads its colours / sizes from the theme variables below.
+   You normally never edit this part to make a new design: add a theme block.
+   ========================================================================= */
 
-.voice-topbar {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: 0.2s;
-
-  height: 5px;
-
-  background-color: #000000;
-  backdrop-filter: blur(60px);
-  -webkit-backdrop-filter: blur(60px);
-  border-radius: 0 0 8px 8px;
-
+.notch {
+  position: relative;
+  overflow: hidden;
   z-index: 9999;
-  width: 200px;
-  /* Electron window dragging */
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: var(--idle-w);
+  height: var(--idle-h);
+  border-radius: var(--idle-radius);
+
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-family: var(--font);
+
+  transition:
+    width 0.45s var(--ease),
+    height 0.45s var(--ease),
+    border-radius 0.45s var(--ease),
+    box-shadow 0.3s ease;
+
   -webkit-app-region: no-drag;
-  &:hover {
-    transition: 0.2s;
-    height: 10px;
+}
+/* any state except idle = open */
+.notch:not([data-state="idle"]) {
+  width: var(--open-w);
+  height: var(--open-h);
+  border-radius: var(--open-radius);
+}
+
+/* ---- content wrapper (fades in every time the content changes) ---- */
+
+.notch-content {
+  flex: none;
+  width: var(--open-w);
+  padding: 0 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--content-gap, 12px);
+
+  animation: notch-content-in 0.3s var(--ease) both;
+}
+
+.notch-content-center {
+  justify-content: center;
+}
+
+@keyframes notch-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.alt-voice-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: 0.2s;
+/* ---- orb (the glowing capsule) ---- */
 
-  height: 40px;
-  background-color: #000000;
-  backdrop-filter: blur(60px);
-  -webkit-backdrop-filter: blur(60px);
-
-  border-radius: 0 0 16px 16px;
-
-  z-index: 9999;
-  width: 280px;
-  padding: 0 18px;
-  gap: 8px;
-  /* Electron window dragging */
-  -webkit-app-region: no-drag;
-}
-/* =========================================
-   CENTER CAPSULE
-   ========================================= */
-
-.voice-capsule {
-  transition: 0.2s;
-  width: 24px;
-  height: 24px;
-  background: linear-gradient(
-    to right,
-    #d2deff 25%,
-    #c7d6ff 50%,
-    #9eafff 75%,
-    #9eafff 100%
-  );
+.notch-orb {
+  flex: none;
+  width: var(--orb-size, 18px);
+  height: var(--orb-size, 18px);
   border-radius: 50%;
+  background: var(--orb);
+
+  /* --level (0..1) is written by the visualizer while you speak */
+  box-shadow: 0 0 0 calc(2px + var(--level, 0) * 5px) var(--orb-halo);
+
+  transition:
+    box-shadow 0.08s linear,
+    background 0.3s ease;
 }
 
-/* =========================================
-   IN-NOTCH STATUS / RESULT TEXT
-   ========================================= */
+.notch[data-state="processing"] .notch-orb {
+  display: var(--orb-processing-display, block);
+  animation: notch-breathe 1.2s ease-in-out infinite;
+}
 
-.voice-status {
+.notch[data-state="result"] .notch-orb {
+  background: var(--orb-ok);
+  box-shadow: 0 0 0 3px var(--orb-ok-halo);
+}
+
+@keyframes notch-breathe {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+/* ---- visual: bars ---- */
+
+.notch-bars {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-
-  color: #9eafff;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  font-family: Arial, Helvetica, sans-serif;
-
+  gap: var(--bar-gap, 3px);
+  height: var(--bar-h, 20px);
 }
 
-.voice-listening-dot {
+.notch-bar {
+  width: var(--bar-w, 3px);
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(to top, var(--bar-a), var(--bar-b));
+  transform: scaleY(0.2);
+  transform-origin: center;
+  will-change: transform;
+}
+
+/* while transcribing: a calm wave instead of reacting to the mic */
+.notch-bars[data-mode="processing"] .notch-bar {
+  opacity: 0.75;
+  animation: notch-wave 1.1s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.12s);
+}
+
+@keyframes notch-wave {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(0.65);
+  }
+}
+
+/* ---- visual: dot ---- */
+
+.notch-dot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #9eafff;
-  animation: voice-listening-pulse 1s ease-in-out infinite;
-  font-family: Arial, Helvetica, sans-serif;
-
+  background: var(--accent);
+  animation: notch-pulse 1s ease-in-out infinite;
 }
 
-.voice-listening-dot-processing {
-  background: #ffcf6b;
-  animation: voice-listening-pulse 0.7s ease-in-out infinite;
+.notch-dot[data-mode="processing"] {
+  background: var(--warn);
+  animation-duration: 0.7s;
 }
 
-@keyframes voice-listening-pulse {
+@keyframes notch-pulse {
   0%,
   100% {
     opacity: 0.3;
@@ -137,15 +207,313 @@ body {
   }
 }
 
-.voice-result-text {
-  color: #f4f5f7;
+/* ---- visual: typing dots (iMessage style) ---- */
+
+.notch-typing {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.notch-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--typing, rgba(255, 255, 255, 0.55));
+  animation: notch-typing 1.2s ease-in-out infinite;
+}
+
+.notch-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.notch-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes notch-typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* ---- label ---- */
+
+.notch-label {
+  flex: none;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--label);
+  white-space: nowrap;
+}
+
+/* ---- result text ---- */
+
+.notch-result {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   line-height: 1.4;
-  text-align: center;
-
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--text);
+  text-align: var(--result-align, start);
   white-space: nowrap;
-  max-width: 100%;
-  font-family: Arial, Helvetica, sans-serif;
+  overflow: hidden;
+  font-family: var(--font-geist-pixel-square), sans-serif;
+
+  /* long dictation fades out at the edge instead of a hard "…" */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 28px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
+
+.notch-result-emoji {
+  font-size: 22px;
+  line-height: 1;
+  font-family:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  animation: notch-pop 0.5s var(--ease) both;
+}
+
+@keyframes notch-pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* small label chip, used for the language-switch confirmation */
+.notch-tag {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  /* font-weight: 600; */
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--chip-bg);
+    font-family: var(--font-geist-pixel-square), sans-serif;
+
+}
+
+/* ---- shimmer sweep while transcribing ---- */
+
+.notch[data-state="processing"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    var(--shimmer) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: notch-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes notch-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notch,
+  .notch * {
+    animation-duration: 0.01s !important;
+    transition-duration: 0.01s !important;
+  }
+}
+
+/* =========================================================================
+   THEMES
+   One block per design concept. Pick the active one in page.tsx
+   (ACTIVE_THEME) — both blocks can stay in the file.
+   ========================================================================= */
+
+/* ---------- apple (default): minimal, Dynamic-Island-like ---------- */
+
+.notch[data-theme="apple"] {
+  /* the iOS / macOS "spring-like" ease */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+    "Segoe UI", sans-serif;
+
+  --idle-w: 64px;
+  --idle-h: 3px;
+  --idle-radius: 0 0 3px 3px;
+  --open-w: 260px;
+  --open-h: 36px;
+  --open-radius: 0 0 22px 22px;
+
+  --bg: #000;
+  --shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
+
+  --text: #fff;
+  --label: rgba(255, 255, 255, 0.6);
+  --result-align: center;
+
+  --accent: rgba(255, 255, 255, 0.85);
+  --warn: #ff9f0a;
+  --chip-bg: rgba(255, 255, 255, 0.14);
+
+  /* the orange "microphone in use" dot */
+  --orb: #ff9f0a;
+  --orb-size: 7px;
+  --orb-halo: transparent;
+  --orb-ok: #30d158;
+  --orb-ok-halo: transparent;
+  --orb-processing-display: none;
+  --content-gap: 10px;
+
+  /* thin white waveform */
+  --bar-a: rgba(255, 255, 255, 0.85);
+  --bar-b: #fff;
+  --bar-w: 2.5px;
+  --bar-gap: 3px;
+  --bar-h: 16px;
+
+  --typing: rgba(255, 255, 255, 0.6);
+  --shimmer: transparent;
+}
+
+/* ---------- glass ---------- */
+
+.notch[data-theme="glass"] {
+  --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* size */
+  --idle-w: 120px;
+  --idle-h: 4px;
+  --idle-radius: 0 0 6px 6px;
+  --open-w: 280px;
+  --open-h: 40px;
+  --open-radius: 0 0 20px 20px;
+
+  /* surface */
+  --bg: linear-gradient(
+    180deg,
+    rgba(14, 15, 22, 0.96),
+    rgba(22, 24, 36, 0.94)
+  );
+  --shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.09),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    0 10px 24px -8px rgba(0, 0, 0, 0.55);
+
+  /* text */
+  --text: #f4f5f7;
+  --label: #aab4e4;
+
+  /* accent */
+  --accent: #9eafff;
+  --warn: #ffcf6b;
+  --chip-bg: rgba(158, 175, 255, 0.16);
+
+  /* orb */
+  --orb: linear-gradient(
+    to right,
+    #d2deff 25%,
+    #c7d6ff 50%,
+    #9eafff 75%,
+    #9eafff 100%
+  );
+  --orb-halo: rgba(158, 175, 255, 0.28);
+  --orb-ok: linear-gradient(135deg, #c9f5d9, #7fd9a3);
+  --orb-ok-halo: rgba(127, 217, 163, 0.28);
+
+  /* bars + shimmer */
+  --bar-a: #9eafff;
+  --bar-b: #d2deff;
+  --shimmer: rgba(158, 175, 255, 0.14);
+}
+
+/* ---------- classic (the previous look) ---------- */
+
+.notch[data-theme="classic"] {
+  --ease: ease;
+  --font: Arial, Helvetica, sans-serif;
+
+  --idle-w: 200px;
+  --idle-h: 5px;
+  --idle-radius: 0 0 8px 8px;
+  --open-w: 280px;
+  --open-h: 40px;
+  --open-radius: 0 0 16px 16px;
+
+  --bg: rgba(0, 0, 0, 0.78);
+  --shadow: none;
+
+  --text: #f4f5f7;
+  --label: #9eafff;
+
+  --accent: #9eafff;
+  --warn: #ffcf6b;
+  --chip-bg: rgba(158, 175, 255, 0.16);
+
+  /* unused by this theme's layout, but defined so nothing is ever empty */
+  --orb: #9eafff;
+  --orb-halo: transparent;
+  --orb-ok: #9eafff;
+  --orb-ok-halo: transparent;
+  --bar-a: #9eafff;
+  --bar-b: #9eafff;
+  --shimmer: transparent;
+}
+
+/* ---------- NEW THEME TEMPLATE ----------
+   1. Copy this block, rename "your-theme".
+   2. Add { visual, bars, processing, orb, orbInResult, label, labels } for
+      "your-theme" to THEMES in page.tsx.
+   3. Set ACTIVE_THEME = "your-theme"  (or in the devtools console:
+      localStorage.setItem("voca-theme", "your-theme") and reload).
+
+.notch[data-theme="your-theme"] {
+  --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --font: -apple-system, "Segoe UI", sans-serif;
+
+  --idle-w: 120px;  --idle-h: 4px;   --idle-radius: 0 0 6px 6px;
+  --open-w: 280px;  --open-h: 40px;  --open-radius: 0 0 20px 20px;
+
+  --bg: #000;
+  --shadow: none;
+
+  --text: #fff;
+  --label: #aaa;
+
+  --accent: #9eafff;
+  --warn: #ffcf6b;
+  --chip-bg: rgba(255, 255, 255, 0.12);
+
+  --orb: #9eafff;           --orb-halo: rgba(158, 175, 255, 0.28);
+  --orb-ok: #7fd9a3;        --orb-ok-halo: rgba(127, 217, 163, 0.28);
+
+  --bar-a: #9eafff;         --bar-b: #d2deff;
+  --shimmer: rgba(255, 255, 255, 0.1);
+
+  /* optional fine-tuning (all have defaults):
+     --orb-size  --bar-w  --bar-gap  --bar-h  --content-gap
+     --result-align (start | center)  --typing  --orb-processing-display (none) */

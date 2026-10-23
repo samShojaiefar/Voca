@@ -1,4 +1,13 @@
-const { app, BrowserWindow, screen, ipcMain, session, clipboard } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  screen,
+  ipcMain,
+  session,
+  clipboard,
+  systemPreferences,
+  shell,
+} = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -708,6 +717,53 @@ function setupIpc() {
     }
   );
 
+  // ---------------------------------------------------------
+  // Permissions (only macOS needs them: the global key hook and the
+  // simulated paste require Accessibility / Input Monitoring).
+  // Windows and Linux report "no permissions required".
+  // ---------------------------------------------------------
+
+  ipcMain.handle("get-permission-status", () => {
+    const isMac = process.platform === "darwin";
+
+    return {
+      platform: process.platform,
+      requiresPermissions: isMac,
+      accessibilityGranted: isMac
+        ? systemPreferences.isTrustedAccessibilityClient(false)
+        : true,
+    };
+  });
+
+  ipcMain.handle("open-accessibility-settings", async () => {
+    if (process.platform !== "darwin") return false;
+
+    // true = also show the system "grant access" prompt
+    systemPreferences.isTrustedAccessibilityClient(true);
+
+    await shell.openExternal(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+    );
+
+    return true;
+  });
+
+  ipcMain.handle("open-input-monitoring-settings", async () => {
+    if (process.platform !== "darwin") return false;
+
+    await shell.openExternal(
+      "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+    );
+
+    return true;
+  });
+
+  ipcMain.on("close-setup-window", () => {
+    if (setupWin && !setupWin.isDestroyed()) {
+      setupWin.close();
+    }
+  });
+
   ipcMain.handle(
     "set-trigger-key",
     (_event, keyId) => {
@@ -811,6 +867,7 @@ function setupIpc() {
 // NEW: spoken emoji. Say "emoji" + a name from the list below and the
 // transcript gets the emoji instead:
 //     "hello, emoji heart"  ->  "hello, ❤️"
+//     "سلام ایموجی قلب"      ->  "سلام ❤️"
 // Names are matched case-insensitively and the longest name wins, so
 // "emoji broken heart" gives 💔 and not ❤️. To add your own, just add a
 // line:  "your name": "😀",
@@ -819,7 +876,7 @@ function setupIpc() {
 const EMOJI_LIST = {
   // --- faces ---
   "smile": "😊", "happy": "😊", "smiley": "😃", "big smile": "😄",
-  "grin": "😁", "laugh": "😂", "laughing": "😂", "joy": "😂", "lol": "😂",
+  "grin": "😁", "laugh": "😂", "laughing": "😂", "joy": "😂", "ho ho ": "😂",
   "rofl": "🤣", "wink": "😉", "cool": "😎", "sunglasses": "😎",
   "heart eyes": "😍", "in love": "😍", "kiss": "😘", "kissing": "😘",
   "cry": "😢", "sad": "😢", "crying": "😭", "sob": "😭",
@@ -848,7 +905,7 @@ const EMOJI_LIST = {
   "fist": "✊", "peace": "✌️", "victory": "✌️",
   "crossed fingers": "🤞", "fingers crossed": "🤞",
   "point up": "☝️", "point right": "👉", "point left": "👈",
-  "point down": "👇", "raised hands": "🙌", "handshake": "🤝",
+  "point down": "👇", "raised hands": "🙌", "handshake": "🤝","fuck": "🖕",
   "writing hand": "✍️", "eyes": "👀", "brain": "🧠",
 
   // --- symbols ---
@@ -894,11 +951,104 @@ const EMOJI_LIST = {
 
   // --- sports ---
   "football": "⚽", "soccer": "⚽", "basketball": "🏀",
+
+  // --- more faces & reactions ---
+  "slightly smiling": "🙂", "upside down": "🙃", "relaxed": "☺️",
+  "blush": "😊", "salute": "🫡", "melting": "🫠", "yawn": "🥱",
+  "sweat smile": "😅", "facepalm": "🤦", "shrug": "🤷", "zany": "🤪",
+  "money face": "🤑", "zipper mouth": "🤐", "shush": "🤫",
+  "vomit": "🤮", "sneeze": "🤧", "hot face": "🥵", "cold face": "🥶",
+  "dizzy": "😵", "exploding head": "🤯", "mind blown": "🤯",
+  "rolling eyes": "🙄", "eye roll": "🙄", "smirk": "😏", "unamused": "😒",
+  "worried": "😟", "anxious": "😰", "scared": "😨", "disappointed": "😞",
+  "yum": "😋", "drooling": "🤤", "monocle": "🧐", "cowboy": "🤠",
+
+  // --- more hands ---
+  "ok hand": "👌", "pinch": "🤏", "call me": "🤙", "rock on": "🤘",
+  "love you": "🤟", "raised hand": "✋", "high five": "🙌",
+  "thumbs": "👍", "palms up": "🤲", "nail polish": "💅",
+
+  // --- more symbols ---
+  "plus": "➕", "minus": "➖", "arrow right": "➡️", "arrow left": "⬅️",
+  "arrow up": "⬆️", "arrow down": "⬇️", "recycle": "♻️", "infinity": "♾️",
+  "red circle": "🔴", "green circle": "🟢", "blue circle": "🔵",
+  "yellow circle": "🟡", "stop": "🛑", "no entry": "⛔", "forbidden": "🚫",
+  "new": "🆕", "free": "🆓", "cool button": "🆒", "sos": "🆘",
+  "pushpin": "📍", "link": "🔗", "paperclip": "📎", "search": "🔍",
+  "magnifying glass": "🔍", "bookmark": "🔖", "flag": "🚩",
+  "checkered flag": "🏁", "target": "🎯", "dice": "🎲",
+  "chart": "📈", "chart up": "📈", "chart down": "📉", "bar chart": "📊",
+  "battery": "🔋", "plug": "🔌", "wrench": "🔧", "hammer": "🔨",
+  "gear": "⚙️", "tools": "🛠️", "magnet": "🧲", "shield": "🛡️",
+  "package": "📦", "inbox": "📥", "outbox": "📤", "megaphone": "📣",
+  "speech bubble": "💬", "thought bubble": "💭", "zzz": "💤",
+  "wave hand": "👋", "see no evil": "🙈", "hear no evil": "🙉",
+  "speak no evil": "🙊",
+
+  // --- more objects ---
+  "keyboard": "⌨️", "mouse device": "🖱️", "printer": "🖨️",
+  "bug": "🐛", "code": "👨‍💻", "developer": "👨‍💻", "coder": "👨‍💻",
+  "floppy disk": "💾", "cd": "💿", "satellite": "📡", "telescope": "🔭",
+  "microscope": "🔬", "pill": "💊", "syringe": "💉", "stethoscope": "🩺",
+  "glasses": "👓", "backpack": "🎒", "shopping cart": "🛒",
+  "credit card": "💳", "envelope": "✉️", "newspaper": "📰",
+  "scroll": "📜", "clipboard": "📋", "scissors": "✂️", "paint": "🎨",
+  "palette": "🎨", "guitar": "🎸", "piano": "🎹", "drum": "🥁",
+  "movie": "🎬", "ticket": "🎫", "balloon": "🎈", "candle": "🕯️",
+  "fireworks": "🎆", "christmas tree": "🎄", "santa": "🎅",
+
+  // --- more food & drink ---
+  "sushi": "🍣", "ramen": "🍜", "spaghetti": "🍝", "salad": "🥗",
+  "sandwich": "🥪", "hot dog": "🌭", "donut": "🍩", "chocolate": "🍫",
+  "candy": "🍬", "lollipop": "🍭", "orange": "🍊", "lemon": "🍋",
+  "grapes": "🍇", "peach": "🍑", "cherry": "🍒", "avocado": "🥑",
+  "carrot": "🥕", "corn": "🌽", "pepper": "🌶️", "cheese": "🧀",
+  "milk": "🥛", "champagne": "🍾", "cocktail": "🍸", "cheers": "🥂",
+  "juice": "🧃", "bubble tea": "🧋",
+
+  // --- more nature & animals ---
+  "lightning bolt": "⚡", "tornado": "🌪️", "volcano": "🌋",
+  "mountain": "⛰️", "beach": "🏖️", "palm tree": "🌴", "leaf": "🍃",
+  "four leaf clover": "🍀", "clover": "🍀", "mushroom": "🍄",
+  "tulip": "🌷", "bouquet": "💐", "full moon": "🌕", "new moon": "🌑",
+  "star struck": "🤩", "shooting star": "🌠", "milky way": "🌌",
+  "fox": "🦊", "wolf": "🐺", "koala": "🐨", "hamster": "🐹",
+  "sheep": "🐑", "goat": "🐐", "camel": "🐫", "giraffe": "🦒",
+  "zebra": "🦓", "dolphin": "🐬", "whale": "🐳", "shark": "🦈",
+  "octopus": "🐙", "crab": "🦀", "spider": "🕷️", "ant": "🐜",
+  "ladybug": "🐞", "owl": "🦉", "eagle": "🦅", "duck": "🦆",
+  "swan": "🦢", "flamingo": "🦩", "peacock": "🦚", "parrot": "🦜",
+  "dragon": "🐉", "t rex": "🦖", "dinosaur": "🦕",
+
+  // --- more places & travel ---
+  "train": "🚆", "bus": "🚌", "taxi": "🚕", "truck": "🚚",
+  "helicopter": "🚁", "boat": "⛵", "anchor": "⚓", "map": "🗺️",
+  "tent": "⛺", "castle": "🏰", "hospital": "🏥", "school": "🏫",
+  "office": "🏢", "bank": "🏦", "statue of liberty": "🗽",
+
+  // --- more sports ---
+  "tennis": "🎾", "baseball": "⚾", "volleyball": "🏐", "golf": "⛳",
+  "boxing": "🥊", "ping pong": "🏓", "bowling": "🎳", "swimming": "🏊",
+  "running": "🏃", "weightlifting": "🏋️", "gold medal": "🥇",
+  "silver medal": "🥈", "bronze medal": "🥉",
+
+  // --- Persian names (say "ایموجی" + name) ---
+  "قلب": "❤️", "دل": "❤️", "عشق": "❤️", "لبخند": "😊", "خنده": "😂",
+  "گریه": "😢", "آتش": "🔥", "آتیش": "🔥", "لایک": "👍", "دستمریزاد": "👏",
+  "تشویق": "👏", "ستاره": "⭐", "تبریک": "🎉", "جشن": "🎉",
+  "هدیه": "🎁", "گل": "🌹", "خورشید": "☀️", "ماه": "🌙", "باران": "🌧️",
+  "برف": "❄️", "چشم": "👀", "فکر": "🤔", "تعجب": "😮", "عصبانی": "😡",
+  "خواب": "😴", "دعا": "🙏", "ممنون": "🙏", "تیک": "✅", "ضربدر": "❌",
+  "هشدار": "⚠️", "ایده": "💡", "موشک": "🚀", "پول": "💰", "چای": "🍵",
+  "قهوه": "☕", "پیتزا": "🍕", "گربه": "🐱", "سگ": "🐶", "ماشین": "🚗",
+  "خانه": "🏠", "کتاب": "📖", "موبایل": "📱", "ساعت": "⏰",
 };
 
-// Built once: "emoji" (or "emojis") + optional filler + a name from the list.
-// Whisper adds its own punctuation, so commas / periods around the name
-// are tolerated and a trailing "." or "," is swallowed with the emoji.
+// Built once: a trigger word ("emoji", "emojis", "emoticon", or Persian
+// "ایموجی" / "اموجی") + optional filler + a name from the list.
+// Whisper adds its own punctuation, so commas / periods around the name are
+// tolerated and a trailing "." or "," is swallowed with the emoji.
+// Unicode-aware boundaries are used instead of \\b so Persian names work too.
 const EMOJI_REGEX = (() => {
   const names = Object.keys(EMOJI_LIST)
     .sort((a, b) => b.length - a.length)
@@ -909,10 +1059,10 @@ const EMOJI_REGEX = (() => {
     );
 
   return new RegExp(
-    "\\bemojis?[\\s,.:;!-]+" +
+    "(?<![\\p{L}\\p{N}])(?:emojis?|emoticons?|ایموجی|اموجی)[\\s,.:;!\u060C-]+" +
       "(?:(?:of\\s+)?(?:a|an|the)\\s+)?" +
-      "(" + names.join("|") + ")\\b[.,]?",
-    "gi"
+      "(" + names.join("|") + ")(?![\\p{L}\\p{N}])[.,\u060C]?",
+    "giu"
   );
 })();
 
@@ -977,10 +1127,12 @@ function restoreClipboard(text, image) {
 
 function typeIntoActiveApp(text) {
   // Whisper prints markers like [BLANK_AUDIO] when it hears nothing.
-  const cleaned = text
-    .replace(/\[[A-Z_ ]+\]/g, "")
-    .replace(/\s*\n\s*/g, " ")
-    .trim();
+  let cleaned = text.replace(/\[[A-Z_ ]+\]/g, "");
+
+  // Dictation stays on one line.
+  cleaned = cleaned.replace(/\s*\n\s*/g, " ");
+
+  cleaned = cleaned.trim();
 
   if (!cleaned) return;
 
@@ -1151,7 +1303,7 @@ function runWhisper(wavPath, lang) {
     const rawText = output.trim();
 
     // NEW: turn spoken "emoji heart" into ❤️ before showing / pasting it.
-    const text = applyEmojiCommands(rawText);
+    let text = applyEmojiCommands(rawText);
 
     if (text !== rawText) {
       console.log("[Voca] Raw transcript (before emoji):", rawText);

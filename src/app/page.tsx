@@ -2,17 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-declare global {
-  interface Window {
-    voiceOS: {
-      onAltState: (callback: (isDown: boolean) => void) => void;
-      onTranscriptionResult?: (
-        callback: (text: string) => void
-      ) => () => void;
-      sendAudioBuffer?: (arrayBuffer: ArrayBuffer) => void;
-    };
-  }
-}
+
 
 const TARGET_SAMPLE_RATE = 16000;
 
@@ -109,11 +99,228 @@ function encodeWav(pcm16: ArrayBuffer, sampleRate: number): ArrayBuffer {
   return buffer;
 }
 
+// ---------------------------------------------------------------------------
+// THEMES
+//
+// A theme = a block of CSS variables in globals.css (`.notch[data-theme="x"]`)
+// + one entry here that says which visualizer / pieces it uses.
+//
+// To add a new design concept:
+//   1. Copy the "NEW THEME TEMPLATE" block at the bottom of globals.css,
+//      rename `your-theme`, and change the colours / sizes.
+//   2. Add an entry to THEMES below with the same id.
+//   3. Set ACTIVE_THEME to that id (or test it live from the devtools
+//      console with:  localStorage.setItem("voca-theme", "your-theme")  and reload).
+// ---------------------------------------------------------------------------
+
+type ThemeConfig = {
+  // listening visual: "bars" = live voice-level bars, "dots" = one pulsing dot
+  visual: "bars" | "dots";
+  // how many bars (only for visual "bars")
+  bars: number;
+  // transcribing visual: "wave" = calm bar wave, "typing" = bouncing dots
+  processing: "wave" | "typing";
+  // small dot / orb on the left while live
+  orb: boolean;
+  // keep the orb in the result state too
+  orbInResult: boolean;
+  // show the "Listening" / "Transcribing" text
+  label: boolean;
+  labels: { listening: string; processing: string };
+};
+
+const THEMES: Record<string, ThemeConfig> = {
+  // Minimal, Apple-like: pure black pill, orange mic dot, thin white
+  // waveform, iMessage-style typing dots, system font.
+  apple: {
+    visual: "bars",
+    bars: 5,
+    processing: "typing",
+    orb: true,
+    orbInResult: false,
+    label: false,
+    labels: { listening: "Listening", processing: "Transcribing" },
+  },
+
+  // Glass pill, glowing orb, live voice bars.
+  glass: {
+    visual: "bars",
+    bars: 7,
+    processing: "wave",
+    orb: true,
+    orbInResult: true,
+    label: true,
+    labels: { listening: "Listening", processing: "Transcribing" },
+  },
+
+  // The original look: black bar, pulsing dot, plain text.
+  classic: {
+    visual: "dots",
+    bars: 0,
+    processing: "wave",
+    orb: false,
+    orbInResult: false,
+    label: true,
+    labels: { listening: "Listening…", processing: "Transcribing…" },
+  },
+};
+
+const ACTIVE_THEME = "apple";
+const THEME_STORAGE_KEY = "voca-theme";
+
+// How strongly a bar reacts to your voice (middle bars move the most).
+function barWeight(i: number, count: number) {
+  const mid = (count - 1) / 2;
+
+  return mid === 0 ? 1 : 1 - (Math.abs(i - mid) / mid) * 0.6;
+}
+
+// "emoji heart" -> only an emoji came back -> show it big with a pop.
+const EMOJI_ONLY =
+  /^[\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\s]+$/u;
+
+// main.js reuses the result channel for the Ctrl+Shift+L confirmation.
+const LANGUAGE_MESSAGE = /^Language:\s*(.+)$/i;
+
 type NotchState = "idle" | "listening" | "processing" | "result";
+
+// ---------------------------------------------------------------------------
+// Visualizer: orb halo + bars follow the mic level (written straight to the
+// DOM every frame, so React never re-renders while you talk).
+// ---------------------------------------------------------------------------
+
+function Visualizer({
+  visual,
+  bars: barCount,
+  processing,
+  mode,
+  levelRef,
+  rootRef,
+}: {
+  visual: ThemeConfig["visual"];
+  bars: number;
+  processing: ThemeConfig["processing"];
+  mode: "listening" | "processing";
+  levelRef: React.MutableRefObject<number>;
+  rootRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const barsRef = useRef<(HTMLSpanElement | null)[]>([]);
+
+  useEffect(() => {
+    const bars = barsRef.current;
+
+    if (mode !== "listening") {
+      rootRef.current?.style.setProperty("--level", "0");
+      bars.forEach((bar) => {
+        if (bar) bar.style.transform = "";
+      });
+      return;
+    }
+
+    let raf = 0;
+    let smooth = 0;
+
+    const tick = (t: number) => {
+      const raw = Math.min(1, levelRef.current * 7);
+
+      // fast attack, slow release = feels like a real level meter
+      smooth = raw > smooth ? raw : smooth * 0.88 + raw * 0.12;
+
+      const v = Math.pow(smooth, 0.6);
+
+      rootRef.current?.style.setProperty("--level", v.toFixed(3));
+
+      bars.forEach((bar, i) => {
+        if (!bar) return;
+
+        const idle = 0.2 + 0.08 * Math.sin(t / 220 + i * 0.9);
+        const wobble = 0.75 + 0.25 * Math.sin(t / 95 + i * 1.7);
+        const h = Math.min(1, idle + v * barWeight(i, bars.length) * wobble);
+
+        bar.style.transform = `scaleY(${h.toFixed(3)})`;
+      });
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(raf);
+  }, [mode, levelRef, rootRef]);
+
+  if (mode === "processing" && processing === "typing") {
+    return (
+      <span className="notch-typing">
+        <span />
+        <span />
+        <span />
+      </span>
+    );
+  }
+
+  if (visual === "dots") {
+    return <span className="notch-dot" data-mode={mode} />;
+  }
+
+  return (
+    <span className="notch-bars" data-mode={mode}>
+      {Array.from({ length: barCount }, (_, i) => (
+        <span
+          key={i}
+          className="notch-bar"
+          style={{ "--i": i } as React.CSSProperties}
+          ref={(el) => {
+            barsRef.current[i] = el;
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Result: normal text, a language switch confirmation, or a lone emoji.
+// ---------------------------------------------------------------------------
+
+function ResultContent({ text, orb }: { text: string; orb: boolean }) {
+  const language = text.match(LANGUAGE_MESSAGE);
+
+  if (language) {
+    return (
+      <div className="notch-content">
+        <span className="notch-tag">Language</span>
+        <span className="notch-result" dir="auto">
+          {language[1]}
+        </span>
+      </div>
+    );
+  }
+
+  if (EMOJI_ONLY.test(text)) {
+    return (
+      <div className="notch-content notch-content-center">
+        <span className="notch-result-emoji">{text.trim()}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="notch-content">
+      {orb && <span className="notch-orb" />}
+      <span className="notch-result" dir="auto">
+        {text}
+      </span>
+    </div>
+  );
+}
 
 export default function Home() {
   const [notchState, setNotchState] = useState<NotchState>("idle");
   const [transcript, setTranscript] = useState("");
+  const [theme, setTheme] = useState<string>(ACTIVE_THEME);
+
+  const notchRef = useRef<HTMLDivElement | null>(null);
+  const levelRef = useRef(0);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -125,6 +332,19 @@ export default function Home() {
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+
+  // Optional live override for trying designs without editing the code.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+
+      if (saved && THEMES[saved]) {
+        setTheme(saved);
+      }
+    } catch {
+      // storage unavailable — keep ACTIVE_THEME
+    }
+  }, []);
 
   // Set up the mic graph once, on mount, so holding the trigger key never
   // has to wait on a getUserMedia round trip. The mic stays open but is
@@ -155,10 +375,21 @@ export default function Home() {
         processorRef.current = processor;
 
         processor.onaudioprocess = (e) => {
-          if (!recordingRef.current) return;
-          chunksRef.current.push(
-            new Float32Array(e.inputBuffer.getChannelData(0))
-          );
+          if (!recordingRef.current) {
+            levelRef.current = 0;
+            return;
+          }
+
+          const data = e.inputBuffer.getChannelData(0);
+
+          // Volume (RMS) for the notch visualizer.
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            sum += data[i] * data[i];
+          }
+          levelRef.current = Math.sqrt(sum / data.length);
+
+          chunksRef.current.push(new Float32Array(data));
         };
 
         // A silent gain node keeps the graph "live" without echoing mic
@@ -231,6 +462,7 @@ export default function Home() {
         // on whisper. flushAndSend() triggers transcription; the bar
         // only collapses once the result (or lack of audio) is handled.
         recordingRef.current = false;
+        levelRef.current = 0;
         setNotchState("processing");
 
         const sent = flushAndSend();
@@ -275,9 +507,12 @@ export default function Home() {
         clearTimeout(hideTimerRef.current);
       }
 
+      // The language-switch confirmation is just a quick flash.
+      const showFor = LANGUAGE_MESSAGE.test(text) ? 1800 : 5000;
+
       hideTimerRef.current = setTimeout(() => {
         setNotchState("idle");
-      }, 5000);
+      }, showFor);
     });
 
     return () => {
@@ -291,27 +526,46 @@ export default function Home() {
     };
   }, []);
 
-  const expanded = notchState !== "idle";
+  const config = THEMES[theme] ?? THEMES[ACTIVE_THEME];
+  const live = notchState === "listening" || notchState === "processing";
 
   return (
     <main className="container">
-      <div className={expanded ? "alt-voice-topbar" : "voice-topbar"}>
-        {notchState === "listening" && (
-          <span className="voice-status">
-            <span className="voice-listening-dot" />
-            Listening…
-          </span>
-        )}
+      <div
+        ref={notchRef}
+        className="notch"
+        data-theme={theme}
+        data-state={notchState}
+      >
+        {live && (
+          <div key="live" className="notch-content">
+            {config.orb && <span className="notch-orb" />}
 
-        {notchState === "processing" && (
-          <span className="voice-status">
-            <span className="voice-listening-dot voice-listening-dot-processing" />
-            Transcribing…
-          </span>
+            <Visualizer
+              visual={config.visual}
+              bars={config.bars}
+              processing={config.processing}
+              mode={notchState === "listening" ? "listening" : "processing"}
+              levelRef={levelRef}
+              rootRef={notchRef}
+            />
+
+            {config.label && (
+              <span className="notch-label">
+                {notchState === "listening"
+                  ? config.labels.listening
+                  : config.labels.processing}
+              </span>
+            )}
+          </div>
         )}
 
         {notchState === "result" && (
-          <span className="voice-result-text">{transcript}</span>
+          <ResultContent
+            key="result"
+            text={transcript}
+            orb={config.orb && config.orbInResult}
+          />
         )}
       </div>
     </main>

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import logo from "@/app/assets/logo2.svg";
+import logo from "@/app/assets/Glassy Twin Triangles on White.png";
 import "./setup.css"
 type DetectedKey = {
   id: string;
@@ -410,6 +410,7 @@ export default function SetupPage() {
                 alt="Voca logo"
                 width={150}
                 priority
+                className=""
               />
             </div>
 
@@ -813,6 +814,9 @@ export default function SetupPage() {
               {secondaryLang !== "none" && primaryLang !== "auto" && (
                 <> Press <strong>Ctrl + Shift + L</strong> to switch language.</>
               )}
+              {" "}Want an emoji? Say <strong>“emoji heart”</strong> and
+              you&apos;ll get ❤️ — try <strong>“emoji fire”</strong> or{" "}
+              <strong>“emoji thumbs up”</strong> too.
             </p>
 
             <textarea

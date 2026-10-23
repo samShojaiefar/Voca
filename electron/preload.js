@@ -61,6 +61,38 @@ contextBridge.exposeInMainWorld(
         secondary
       ),
 
+    // -------------------------------------------------------
+    // Permissions (macOS) and setup window
+    // -------------------------------------------------------
+
+    getPermissionStatus: () =>
+      ipcRenderer.invoke(
+        "get-permission-status"
+      ),
+
+    openAccessibilitySettings: () =>
+      ipcRenderer.invoke(
+        "open-accessibility-settings"
+      ),
+
+    openInputMonitoringSettings: () =>
+      ipcRenderer.invoke(
+        "open-input-monitoring-settings"
+      ),
+
+    closeSetupWindow: () => {
+      ipcRenderer.send(
+        "close-setup-window"
+      );
+    },
+
+    // NEW: save the name asked in setup (used in email sign-offs)
+    setUserName: (name) =>
+      ipcRenderer.invoke(
+        "set-user-name",
+        name
+      ),
+
     setModel: (modelId) =>
       ipcRenderer.invoke(
         "set-model",
