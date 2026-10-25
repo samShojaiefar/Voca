@@ -189,6 +189,10 @@ html, body {
   overflow: hidden;
 }
 
+.notch:hover {
+  background: red !important;
+}
+
 .notch:not([data-state="idle"]) {
   width: var(--open-w);
   height: var(--open-h);

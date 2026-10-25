@@ -3,9 +3,6 @@
 Voca is a voice dictation app that lives in a small notch-style overlay. Press a key, speak, and your words are typed into whatever app you're using.
 
 
-![Voca notch overlay](assets/Glassy Twin Triangles on White.png)
-
-
 ## Features
 
 - **Notch overlay:** A minimal, Apple-inspired indicator that stays out of your way.

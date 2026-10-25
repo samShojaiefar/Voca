@@ -47,7 +47,7 @@ declare global {
       startDictationTest: () => Promise<boolean>;
 
       getPermissionStatus: () => Promise<PermissionStatus>;
-      openAccessibilitySettings: () => Promise<boolean>;
+      openAccessibilitySettings: () =>any;
       openInputMonitoringSettings: () => Promise<boolean>;
       closeSetupWindow: () => void;
 

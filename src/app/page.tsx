@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-
-
 const TARGET_SAMPLE_RATE = 16000;
 
 // -----------------------------------------------------------------------
@@ -13,7 +11,7 @@ const TARGET_SAMPLE_RATE = 16000;
 function downsampleBuffer(
   buffer: Float32Array,
   inputSampleRate: number,
-  outputSampleRate: number
+  outputSampleRate: number,
 ): Float32Array {
   if (outputSampleRate === inputSampleRate) {
     return buffer;
@@ -32,11 +30,7 @@ function downsampleBuffer(
     let accum = 0;
     let count = 0;
 
-    for (
-      let i = offsetBuffer;
-      i < nextOffsetBuffer && i < buffer.length;
-      i++
-    ) {
+    for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
       accum += buffer[i];
       count++;
     }
@@ -303,12 +297,37 @@ function ResultContent({ text, orb }: { text: string; orb: boolean }) {
       </div>
     );
   }
+const lastSearchRef = useRef("");
 
+useEffect(() => {
+  const normalizedText = text.trim();
+
+  if (!normalizedText.toLowerCase().startsWith("search google for ")) {
+    return;
+  }
+
+  if (lastSearchRef.current === normalizedText) {
+    return;
+  }
+
+  const query = normalizedText.slice("search google for ".length).trim();
+
+  if (!query) return;
+
+  lastSearchRef.current = normalizedText;
+
+  window.open(
+    `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+    "_blank"
+  );
+}, [text]);
   return (
     <div className="notch-content">
-      {orb && <span className="notch-orb" />}
+      {/* {orb && <span className="notch-orb" />} */}
       <span className="notch-result" dir="auto">
-        {text}
+{text === "[BLANK_AUDIO]"
+  ? "Try another time"
+  : text}
       </span>
     </div>
   );
@@ -330,7 +349,7 @@ export default function Home() {
   const recordingRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
+    null,
   );
 
   // Optional live override for trying designs without editing the code.
@@ -435,7 +454,7 @@ export default function Home() {
     const downsampled = downsampleBuffer(
       merged,
       audioCtx.sampleRate,
-      TARGET_SAMPLE_RATE
+      TARGET_SAMPLE_RATE,
     );
     const pcm16 = floatTo16BitPCM(downsampled);
     const wav = encodeWav(pcm16, TARGET_SAMPLE_RATE);
@@ -478,7 +497,7 @@ export default function Home() {
           }
           processingTimeoutRef.current = setTimeout(() => {
             setNotchState((current) =>
-              current === "processing" ? "idle" : current
+              current === "processing" ? "idle" : current,
             );
           }, 90000);
         }

@@ -236,7 +236,7 @@ __turbopack_context__.s([
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 ;
-var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature();
+var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.signature(), _s2 = __turbopack_context__.k.signature();
 "use client";
 ;
 const TARGET_SAMPLE_RATE = 16000;
@@ -415,23 +415,23 @@ function Visualizer({ visual, bars: barCount, processing, mode, levelRef, rootRe
             children: [
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {}, void 0, false, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 254,
+                    lineNumber: 248,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {}, void 0, false, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 255,
+                    lineNumber: 249,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {}, void 0, false, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 256,
+                    lineNumber: 250,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/src/app/page.tsx",
-            lineNumber: 253,
+            lineNumber: 247,
             columnNumber: 7
         }, this);
     }
@@ -441,7 +441,7 @@ function Visualizer({ visual, bars: barCount, processing, mode, levelRef, rootRe
             "data-mode": mode
         }, void 0, false, {
             fileName: "[project]/src/app/page.tsx",
-            lineNumber: 262,
+            lineNumber: 256,
             columnNumber: 12
         }, this);
     }
@@ -460,12 +460,12 @@ function Visualizer({ visual, bars: barCount, processing, mode, levelRef, rootRe
                 }
             }, i, false, {
                 fileName: "[project]/src/app/page.tsx",
-                lineNumber: 268,
+                lineNumber: 262,
                 columnNumber: 9
             }, this))
     }, void 0, false, {
         fileName: "[project]/src/app/page.tsx",
-        lineNumber: 266,
+        lineNumber: 260,
         columnNumber: 5
     }, this);
 }
@@ -475,6 +475,7 @@ _c = Visualizer;
 // Result: normal text, a language switch confirmation, or a lone emoji.
 // ---------------------------------------------------------------------------
 function ResultContent({ text, orb }) {
+    _s1();
     const language = text.match(LANGUAGE_MESSAGE);
     if (language) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -485,7 +486,7 @@ function ResultContent({ text, orb }) {
                     children: "Language"
                 }, void 0, false, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 291,
+                    lineNumber: 285,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -494,13 +495,13 @@ function ResultContent({ text, orb }) {
                     children: language[1]
                 }, void 0, false, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 292,
+                    lineNumber: 286,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/src/app/page.tsx",
-            lineNumber: 290,
+            lineNumber: 284,
             columnNumber: 7
         }, this);
     }
@@ -512,44 +513,54 @@ function ResultContent({ text, orb }) {
                 children: text.trim()
             }, void 0, false, {
                 fileName: "[project]/src/app/page.tsx",
-                lineNumber: 302,
+                lineNumber: 296,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/src/app/page.tsx",
-            lineNumber: 301,
+            lineNumber: 295,
             columnNumber: 7
         }, this);
     }
+    const lastSearchRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useRef"])("");
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "ResultContent.useEffect": ()=>{
+            const normalizedText = text.trim();
+            if (!normalizedText.toLowerCase().startsWith("search google for ")) {
+                return;
+            }
+            if (lastSearchRef.current === normalizedText) {
+                return;
+            }
+            const query = normalizedText.slice("search google for ".length).trim();
+            if (!query) return;
+            lastSearchRef.current = normalizedText;
+            window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, "_blank");
+        }
+    }["ResultContent.useEffect"], [
+        text
+    ]);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: "notch-content",
-        children: [
-            orb && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                className: "notch-orb"
-            }, void 0, false, {
-                fileName: "[project]/src/app/page.tsx",
-                lineNumber: 309,
-                columnNumber: 15
-            }, this),
-            /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                className: "notch-result",
-                dir: "auto",
-                children: text
-            }, void 0, false, {
-                fileName: "[project]/src/app/page.tsx",
-                lineNumber: 310,
-                columnNumber: 7
-            }, this)
-        ]
-    }, void 0, true, {
+        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+            className: "notch-result",
+            dir: "auto",
+            children: text === "[BLANK_AUDIO]" ? "Try another time" : text
+        }, void 0, false, {
+            fileName: "[project]/src/app/page.tsx",
+            lineNumber: 327,
+            columnNumber: 7
+        }, this)
+    }, void 0, false, {
         fileName: "[project]/src/app/page.tsx",
-        lineNumber: 308,
+        lineNumber: 325,
         columnNumber: 5
     }, this);
 }
+_s1(ResultContent, "It9xwq3Wsnd4c9+lVy15UAkw4Fs=");
 _c1 = ResultContent;
 function Home() {
-    _s1();
+    _s2();
     const [notchState, setNotchState] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("idle");
     const [transcript, setTranscript] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])("");
     const [theme, setTheme] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(ACTIVE_THEME);
@@ -759,7 +770,7 @@ function Home() {
                             className: "notch-orb"
                         }, void 0, false, {
                             fileName: "[project]/src/app/page.tsx",
-                            lineNumber: 542,
+                            lineNumber: 561,
                             columnNumber: 28
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(Visualizer, {
@@ -771,7 +782,7 @@ function Home() {
                             rootRef: notchRef
                         }, void 0, false, {
                             fileName: "[project]/src/app/page.tsx",
-                            lineNumber: 544,
+                            lineNumber: 563,
                             columnNumber: 13
                         }, this),
                         config.label && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -779,13 +790,13 @@ function Home() {
                             children: notchState === "listening" ? config.labels.listening : config.labels.processing
                         }, void 0, false, {
                             fileName: "[project]/src/app/page.tsx",
-                            lineNumber: 554,
+                            lineNumber: 573,
                             columnNumber: 15
                         }, this)
                     ]
                 }, "live", true, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 541,
+                    lineNumber: 560,
                     columnNumber: 11
                 }, this),
                 notchState === "result" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(ResultContent, {
@@ -793,22 +804,22 @@ function Home() {
                     orb: config.orb && config.orbInResult
                 }, "result", false, {
                     fileName: "[project]/src/app/page.tsx",
-                    lineNumber: 564,
+                    lineNumber: 583,
                     columnNumber: 11
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/src/app/page.tsx",
-            lineNumber: 534,
+            lineNumber: 553,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/src/app/page.tsx",
-        lineNumber: 533,
+        lineNumber: 552,
         columnNumber: 5
     }, this);
 }
-_s1(Home, "16cRevGMCAdlyerb14ghyy2OqeA=");
+_s2(Home, "16cRevGMCAdlyerb14ghyy2OqeA=");
 _c2 = Home;
 var _c, _c1, _c2;
 __turbopack_context__.k.register(_c, "Visualizer");

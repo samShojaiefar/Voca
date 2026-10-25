@@ -1059,7 +1059,7 @@ const EMOJI_REGEX = (() => {
     );
 
   return new RegExp(
-    "(?<![\\p{L}\\p{N}])(?:emojis?|emoticons?|ایموجی|اموجی)[\\s,.:;!\u060C-]+" +
+    "(?<![\\p{L}\\p{N}])(?:emojis?|emoji|emoticons?|ایموجی|اموجی)[\\s,.:;!\u060C-]+" +
       "(?:(?:of\\s+)?(?:a|an|the)\\s+)?" +
       "(" + names.join("|") + ")(?![\\p{L}\\p{N}])[.,\u060C]?",
     "giu"

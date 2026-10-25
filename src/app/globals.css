@@ -376,7 +376,7 @@ body {
 
   --accent: rgba(255, 255, 255, 0.85);
   --warn: #ff9f0a;
-  --chip-bg: rgba(255, 255, 255, 0.14);
+  --chip-bg: #ffffff24;
 
   /* the orange "microphone in use" dot */
   --orb: #ff9f0a;
