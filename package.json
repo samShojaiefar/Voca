@@ -18,8 +18,7 @@
     "nodejs-whisper": "^0.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "uiohook-napi": "^1.5.5",
-    "vosk": "^0.3.39"
+    "uiohook-napi": "1.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -36,29 +35,33 @@
     "typescript": "^5",
     "wait-on": "^9.1.0"
   },
-  "build": {
-    "appId": "com.samshojaiefar.voca",
-    "productName": "Voca",
-    "directories": {
-      "output": "dist"
+"build": {
+  "appId": "com.samshojaiefar.voca",
+  "productName": "Voca",
+  "directories": { "output": "dist" },
+  "files": [
+    "out/**/*",
+    "electron/**/*",
+    "package.json",
+    "node_modules/**/*",
+    "!electron/whisper.cpp/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "electron/whisper.cpp/build/bin",
+      "to": "whisper.cpp/build/bin",
+      "filter": ["**/*"]
     },
-    "files": [
-      ".next/**/*",
-      "electron/**/*",
-      "public/**/*",
-      "package.json",
-      "node_modules/**/*",
-      "!.next/cache"
-    ],
-    "win": {
-      "icon": "build/icon.ico",
-      "target": "nsis"
-    },
-    "linux": {
-      "icon": "build/icon.png"
-    },
-    "mac": {
-      "icon": "build/icon.icns"
+    {
+      "from": "electron/whisper.cpp/models",
+      "to": "whisper.cpp/models",
+      "filter": ["*.bin"]
     }
+  ],
+  "win": {
+    "icon": "build/icon.png",
+    "target": "nsis",
+    "signExecutable": false
   }
+}
 }

@@ -7,9 +7,9 @@ if (!Array.isArray(globalThis["TURBOPACK"])) {
     return;
 }
 
-var CHUNK_BASE_PATH = "/_next/";
+var CHUNK_BASE_PATH = "./_next/";
 var RELATIVE_ROOT_PATH = "/ROOT";
-var RUNTIME_PUBLIC_PATH = "/_next/";
+var RUNTIME_PUBLIC_PATH = "./_next/";
 const SUPPORT_COMPONENT_CHUNKS = false;
 var ASSET_SUFFIX = getAssetSuffixFromScriptSrc();
 var CROSS_ORIGIN = null;

@@ -10,6 +10,7 @@ const {
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const http = require("http");
 const os = require("os");
 const { spawn } = require("child_process");
 const { uIOhook, UiohookKey } = require("uiohook-napi");
@@ -312,6 +313,99 @@ let notchWin = null;
 let setupWin = null;
 
 // ---------------------------------------------------------------------------
+// Local static server for the exported Next.js frontend (out/)
+// ---------------------------------------------------------------------------
+
+let vocaServer = null;
+let vocaBaseUrl = null;
+
+function startVocaServer() {
+  // out/ sits next to the electron/ folder (same layout loadFile used before).
+  const outDir = path.resolve(__dirname, "..", "out");
+
+  const mimeTypes = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".txt": "text/plain; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".webp": "image/webp",
+  };
+
+  const isFile = (p) => {
+    try {
+      return fs.statSync(p).isFile();
+    } catch {
+      return false;
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    vocaServer = http.createServer((req, res) => {
+      try {
+        const pathname = decodeURIComponent(
+          new URL(req.url, "http://127.0.0.1").pathname
+        );
+
+        const relativePath = pathname.replace(/^\/+|\/+$/g, "");
+        const base = path.resolve(outDir, relativePath);
+
+        if (base !== outDir && !base.startsWith(outDir + path.sep)) {
+          res.writeHead(403);
+          return res.end("Forbidden");
+        }
+
+        // "/" -> index.html, "/setup" -> setup.html or setup/index.html
+        const filePath = [
+          base,
+          base + ".html",
+          path.join(base, "index.html"),
+        ].find(isFile);
+
+        if (!filePath) {
+          res.writeHead(404);
+          return res.end("Not found");
+        }
+
+        res.writeHead(200, {
+          "Content-Type":
+            mimeTypes[path.extname(filePath).toLowerCase()] ||
+            "application/octet-stream",
+        });
+
+        fs.createReadStream(filePath).pipe(res);
+      } catch (error) {
+        console.error("[Voca] Frontend server error:", error);
+        if (!res.headersSent) res.writeHead(500);
+        res.end("Internal server error");
+      }
+    });
+
+    vocaServer.once("error", reject);
+
+    // Any free port, localhost only.
+    vocaServer.listen(0, "127.0.0.1", () => {
+      const address = vocaServer.address();
+
+      if (!address || typeof address === "string") {
+        return reject(new Error("Could not start Voca frontend server"));
+      }
+
+      vocaBaseUrl = `http://127.0.0.1:${address.port}`;
+      console.log("[Voca] Frontend server:", vocaBaseUrl);
+      resolve();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Dynamic key support
 // ---------------------------------------------------------------------------
 
@@ -525,9 +619,7 @@ function createNotchWindow() {
   // clicks on whatever app is underneath it.
   notchWin.setIgnoreMouseEvents(true);
 
-  notchWin.loadURL(
-    "http://localhost:3000"
-  );
+  notchWin.loadURL(`${vocaBaseUrl}/`);
 
   notchWin.on("closed", () => {
     notchWin = null;
@@ -555,9 +647,7 @@ function createSetupWindow() {
     },
   });
 
-  setupWin.loadURL(
-    "http://localhost:3000/setup"
-  );
+  setupWin.loadURL(`${vocaBaseUrl}/setup`);
 
   setupWin.on("closed", () => {
     setupWin = null;
@@ -1517,7 +1607,7 @@ function setupKeyboard() {
 // App lifecycle
 // ---------------------------------------------------------------------------
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Auto-grant mic access to our own windows so no OS-level
   // Chromium permission prompt has to appear (the notch window
   // is non-focusable and can't be clicked to dismiss one).
@@ -1527,13 +1617,25 @@ app.whenReady().then(() => {
     }
   );
 
-  setupIpc();
-  setupKeyboard();
-  createSetupWindow();
+  try {
+    await startVocaServer();
+
+    setupIpc();
+    setupKeyboard();
+    createSetupWindow();
+  } catch (error) {
+    console.error("[Voca] Failed to start:", error);
+    app.quit();
+  }
 });
 
 app.on("will-quit", () => {
   uIOhook.stop();
+
+  if (vocaServer) {
+    vocaServer.close();
+    vocaServer = null;
+  }
 });
 
 app.on(

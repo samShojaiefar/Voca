@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import logo from "@/app/assets/Glassy Twin Triangles on White.png";
-import "./setup.css"
+import "./setup.css";
+
 type DetectedKey = {
   id: string;
   label: string;
@@ -29,45 +30,6 @@ type PermissionStatus = {
   accessibilityGranted: boolean;
 };
 
-declare global {
-  interface Window {
-    voiceOS: {
-      getConfig: () => Promise<{
-        triggerKey: string;
-        model?: string;
-        primaryLanguage?: string;
-        secondaryLanguage?: string;
-        setupComplete: boolean;
-      }>;
-
-      getModelOptions: () => Promise<ModelOption[]>;
-      setModel: (modelId: string) => Promise<unknown>;
-      getLanguageOptions: () => Promise<LanguageOption[]>;
-      setLanguagePrefs: (primary: string, secondary: string) => Promise<unknown>;
-      startDictationTest: () => Promise<boolean>;
-
-      getPermissionStatus: () => Promise<PermissionStatus>;
-      openAccessibilitySettings: () =>any;
-      openInputMonitoringSettings: () => Promise<boolean>;
-      closeSetupWindow: () => void;
-
-      setTriggerKey: (
-        keyId: string
-      ) => Promise<{ triggerKey: string; setupComplete: boolean }>;
-
-      finishSetup: (keyId: string, modelId?: string) => Promise<boolean>;
-
-      startKeyCapture: (
-        callback: (key: DetectedKey) => void
-      ) => void;
-
-      stopKeyCapture: () => void;
-
-      onAltState: (callback: (isDown: boolean) => void) => void;
-    };
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Steps
 // ---------------------------------------------------------------------------
@@ -82,9 +44,8 @@ type Step =
   | "test"
   | "done";
 
-// Steps shown in the progress dots, in order. "done" gets a checkmark
-// instead of dots, and "change-key" shares its dot with "current-key"
-// since it's just a sub-flow of picking the trigger key.
+// Steps shown in the progress dots, in order. "done" gets no dots, and
+// "change-key" shares its dot with "current-key" since it's a sub-flow.
 const DOT_STEPS: Step[] = [
   "welcome",
   "permissions",
@@ -106,13 +67,13 @@ export default function SetupPage() {
   const [step, setStep] = useState<Step>("welcome");
 
   const [currentKey, setCurrentKey] = useState<string>("ALT");
-  const [selectedKey, setSelectedKey] = useState<DetectedKey | null>(null);
+  const [selectedKey, setSelectedKey] = useState<DetectedKey | any>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [permissionStatus, setPermissionStatus] =
-    useState<PermissionStatus | null>(null);
+    useState<PermissionStatus | any>(null);
 
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>(DEFAULT_MODEL);
@@ -125,7 +86,7 @@ export default function SetupPage() {
   const testInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // -------------------------------------------------------------------------
-  // Load existing config
+  // Load existing config and model install status
   // -------------------------------------------------------------------------
 
   useEffect(() => {
@@ -135,10 +96,6 @@ export default function SetupPage() {
 
         if (config?.triggerKey) {
           setCurrentKey(config.triggerKey.toUpperCase());
-        }
-
-        if (config?.model) {
-          setModel(config.model);
         }
 
         if (config?.primaryLanguage) {
@@ -158,7 +115,26 @@ export default function SetupPage() {
         const options = await window.voiceOS?.getModelOptions?.();
 
         if (options) {
-          setModels(options);
+          const mapped: ModelOption[] = options.map((option: any) => ({
+            id: option.id,
+            label: option.label,
+            desc: option.installed ? "Ready to use" : "Not installed",
+            installed: Boolean(option.installed),
+          }));
+
+          setModels(mapped);
+
+          // Pick the saved model if it's installed, otherwise the first installed one
+          const savedId = config?.model ?? DEFAULT_MODEL;
+
+          if (mapped.some((m) => m.id === savedId && m.installed)) {
+            setModel(savedId);
+          } else {
+            const firstInstalled = mapped.find((m) => m.installed);
+            if (firstInstalled) {
+              setModel(firstInstalled.id);
+            }
+          }
         }
       } catch (error) {
         console.error("Failed to load Voca config:", error);
@@ -182,7 +158,6 @@ export default function SetupPage() {
     async function checkPermissions() {
       try {
         const status = await window.voiceOS?.getPermissionStatus?.();
-
         if (!cancelled && status) {
           setPermissionStatus(status);
         }
@@ -215,7 +190,6 @@ export default function SetupPage() {
 
     window.voiceOS?.startKeyCapture?.((key) => {
       console.log("Detected key:", key);
-
       setSelectedKey(key);
     });
 
@@ -240,7 +214,7 @@ export default function SetupPage() {
   }, [step]);
 
   // -------------------------------------------------------------------------
-  // Save selected key (from change-key step) without finishing setup yet
+  // Save selected key (from change-key step)
   // -------------------------------------------------------------------------
 
   async function handleSaveKey() {
@@ -261,7 +235,7 @@ export default function SetupPage() {
   }
 
   // -------------------------------------------------------------------------
-  // Finish without changing key — move on to the model step
+  // Keep current key and move on to the model step
   // -------------------------------------------------------------------------
 
   function handleContinueWithCurrentKey() {
@@ -269,11 +243,14 @@ export default function SetupPage() {
   }
 
   // -------------------------------------------------------------------------
-  // Model step -> test step. Save the model now so the test uses it.
+  // Model step -> language step. Save the model only if it's installed.
   // -------------------------------------------------------------------------
 
   async function handleContinueFromModel() {
     if (saving) return;
+
+    const selected = models.find((m) => m.id === model);
+    if (!selected?.installed) return;
 
     setSaving(true);
 
@@ -347,30 +324,26 @@ export default function SetupPage() {
       <main className="setup-page">
         <div className="setup-card">
           <div className="setup-logo">
-            <Image
-              src={logo}
-              alt="Voca logo"
-              width={150}
-              priority
-            />
+            <Image src={logo} alt="Voca logo" width={150} priority />
           </div>
 
-          <p className="setup-hint">
-            Loading Voca…
-          </p>
+          <p className="setup-hint">Loading Voca…</p>
         </div>
       </main>
     );
   }
 
-  const accessibilityGranted =
-    permissionStatus?.accessibilityGranted ?? false;
-
-  const permissionsRequired =
-    permissionStatus?.requiresPermissions ?? false;
+  const accessibilityGranted = permissionStatus?.accessibilityGranted ?? false;
+  const permissionsRequired = permissionStatus?.requiresPermissions ?? false;
 
   const canContinuePastPermissions =
     !permissionsRequired || accessibilityGranted;
+
+  const selectedModelInstalled = models.some(
+    (m) => m.id === model && m.installed,
+  );
+
+  const noModelsInstalled = models.length > 0 && models.every((m) => !m.installed);
 
   // -------------------------------------------------------------------------
   // Render
@@ -379,7 +352,6 @@ export default function SetupPage() {
   return (
     <main className="setup-page">
       <div className="setup-card">
-
         {step !== "done" && (
           <div className="step-dots">
             {DOT_STEPS.map((dotStep, index) => {
@@ -405,22 +377,14 @@ export default function SetupPage() {
         {step === "welcome" && (
           <>
             <div className="setup-logo">
-              <Image
-                src={logo}
-                alt="Voca logo"
-                width={150}
-                priority
-                className=""
-              />
+              <Image src={logo} alt="Voca logo" width={150} priority />
             </div>
 
-            <h1 className="setup-title">
-              Set up Voca
-            </h1>
+            <h1 className="setup-title">Set up Voca</h1>
 
             <p className="setup-subtitle">
-              Let&apos;s get your voice shortcut configured
-              in a couple of steps.
+              Let&apos;s get your voice shortcut configured in a couple of
+              steps.
             </p>
 
             <div className="step-actions">
@@ -441,25 +405,18 @@ export default function SetupPage() {
 
         {step === "permissions" && (
           <>
-            <h1 className="setup-title">
-              Grant permissions
-            </h1>
+            <h1 className="setup-title">Grant permissions</h1>
 
             <p className="setup-subtitle">
-              Voca watches for your trigger key system-wide, so
-              macOS needs you to allow it in two places.
+              Voca watches for your trigger key system-wide, so macOS needs you
+              to allow it in two places.
             </p>
 
             <div className="permission-list">
               <div className="permission-row">
                 <div className="permission-info">
-                  <span className="permission-name">
-                    Accessibility
-                  </span>
-                  <span className="permission-desc">
-                    {/* Lets Voca detect your trigger key while
-                    you&apos;re in any app. */}
-                  </span>
+                  <span className="permission-name">Accessibility</span>
+                  <span className="permission-desc" />
                 </div>
 
                 {accessibilityGranted ? (
@@ -482,13 +439,7 @@ export default function SetupPage() {
 
               <div className="permission-row">
                 <div className="permission-info">
-                  <span className="permission-name">
-                    Input Monitoring
-                  </span>
-                  {/* <span className="permission-desc">
-                    Also required on newer macOS versions.
-                    Voca may need a restart after you enable it.
-                  </span> */}
+                  <span className="permission-name">Input Monitoring</span>
                 </div>
 
                 <button
@@ -505,8 +456,8 @@ export default function SetupPage() {
 
             {!permissionsRequired && (
               <p className="setup-hint">
-                Your platform doesn&apos;t require these
-                permissions — you&apos;re all set here.
+                Your platform doesn&apos;t require these permissions —
+                you&apos;re all set here.
               </p>
             )}
 
@@ -537,9 +488,7 @@ export default function SetupPage() {
 
         {step === "current-key" && (
           <>
-            <h1 className="setup-title">
-              Your trigger key
-            </h1>
+            <h1 className="setup-title">Your trigger key</h1>
 
             <p className="setup-subtitle">
               Hold this key down to bring up Voca.
@@ -547,8 +496,7 @@ export default function SetupPage() {
 
             <div className="current-key-display">
               <div className="keyboard-key key">
-                <span>
-                {currentKey}</span>
+                <span>{currentKey}</span>
               </div>
             </div>
 
@@ -588,13 +536,9 @@ export default function SetupPage() {
 
         {step === "change-key" && (
           <>
-            <h1 className="setup-title">
-              Choose your trigger key
-            </h1>
+            <h1 className="setup-title">Choose your trigger key</h1>
 
-            <p className="setup-subtitle">
-              Press any key on your keyboard.
-            </p>
+            <p className="setup-subtitle">Press any key on your keyboard.</p>
 
             <div className="key-detection-area">
               <div
@@ -607,16 +551,12 @@ export default function SetupPage() {
                 {selectedKey ? (
                   selectedKey.label
                 ) : (
-                  <span className="key-placeholder">
-                    ?
-                  </span>
+                  <span className="key-placeholder">?</span>
                 )}
               </div>
 
               <p className="setup-hint">
-                {selectedKey
-                  ? "Key detected"
-                  : "Waiting for a key…"}
+                {selectedKey ? "Key detected" : "Waiting for a key…"}
               </p>
             </div>
 
@@ -648,9 +588,7 @@ export default function SetupPage() {
 
         {step === "model" && (
           <>
-            <h1 className="setup-title">
-              Choose a model
-            </h1>
+            <h1 className="setup-title">Choose a model</h1>
 
             <p className="setup-subtitle">
               Smaller models are faster, larger ones are more accurate.
@@ -671,15 +609,20 @@ export default function SetupPage() {
                 >
                   <span className="model-info">
                     <span className="model-name">{m.label}</span>
-                    <span className="model-desc">
-                      {m.installed ? m.desc : "Not installed"}
-                    </span>
+                    <span className="model-desc">{m.desc}</span>
                   </span>
 
                   <span className="model-radio" />
                 </button>
               ))}
             </div>
+
+            {noModelsInstalled && (
+              <p className="setup-hint">
+                No models found. Copy a ggml model file into{" "}
+                <code>resources/models</code> and restart Voca.
+              </p>
+            )}
 
             <div className="step-actions">
               <button
@@ -695,7 +638,7 @@ export default function SetupPage() {
                 type="button"
                 className="finish-btn"
                 onClick={handleContinueFromModel}
-                disabled={saving || !models.some((m) => m.id === model && m.installed)}
+                disabled={saving || !selectedModelInstalled}
               >
                 {saving ? "Saving…" : "Continue →"}
               </button>
@@ -709,9 +652,7 @@ export default function SetupPage() {
 
         {step === "language" && (
           <>
-            <h1 className="setup-title">
-              Choose languages
-            </h1>
+            <h1 className="setup-title">Choose languages</h1>
 
             <p className="setup-subtitle">
               Voca uses your primary language. Add a secondary language and
@@ -736,9 +677,7 @@ export default function SetupPage() {
               ))}
             </div>
 
-            <p className="lang-section-title">
-              Secondary language (optional)
-            </p>
+            <p className="lang-section-title">Secondary language (optional)</p>
 
             <div
               className={
@@ -804,18 +743,19 @@ export default function SetupPage() {
 
         {step === "test" && (
           <>
-            <h1 className="setup-title">
-              Try it out
-            </h1>
+            <h1 className="setup-title">Try it out</h1>
 
             <p className="setup-subtitle">
-              Click the box, then hold <strong>{currentKey}</strong> and
-              speak. Your words will appear here.
+              Click the box, then hold <strong>{currentKey}</strong> and speak.
+              Your words will appear here.
               {secondaryLang !== "none" && primaryLang !== "auto" && (
-                <> Press <strong>Ctrl + Shift + L</strong> to switch language.</>
-              )}
-              {" "}Want an emoji? Say <strong>“emoji heart”</strong> and
-              you&apos;ll get ❤️ — try <strong>“emoji fire”</strong> or{" "}
+                <>
+                  {" "}
+                  Press <strong>Ctrl + Shift + L</strong> to switch language.
+                </>
+              )}{" "}
+              Want an emoji? Say <strong>“emoji heart”</strong> and you&apos;ll
+              get ❤️ — try <strong>“emoji fire”</strong> or{" "}
               <strong>“emoji thumbs up”</strong> too.
             </p>
 
@@ -857,27 +797,17 @@ export default function SetupPage() {
         {step === "done" && (
           <>
             <div className="setup-logo">
-              <Image
-                src={logo}
-                alt="Voca logo"
-                width={150}
-              />
+              <Image src={logo} alt="Voca logo" width={150} />
             </div>
 
-            <h1 className="setup-title">
-              You&apos;re all set
-            </h1>
+            <h1 className="setup-title">You&apos;re all set</h1>
 
-            <p className="setup-subtitle">
-              Voca is ready to use.
-            </p>
+            <p className="setup-subtitle">Voca is ready to use.</p>
 
             <div className="final-key">
               <span>Trigger key</span>
 
-              <div className="keyboard-key small">
-                {currentKey}
-              </div>
+              <div className="keyboard-key small">{currentKey}</div>
             </div>
 
             <div className="step-actions">
@@ -893,7 +823,6 @@ export default function SetupPage() {
             </div>
           </>
         )}
-
       </div>
     </main>
   );

@@ -1,4 +1,3 @@
-
 export {};
 
 type CapturedKey = {
@@ -30,56 +29,45 @@ type VoiceOSConfig = {
   primaryLanguage?: string;
   secondaryLanguage?: string;
   setupComplete: boolean;
-};
+};x
 
 declare global {
   interface Window {
     voiceOS: {
-      onAltState: (
-        callback: (isDown: boolean) => void
-      ) => void;
+      getPermissionStatus: () => Promise<PermissionStatus>;
+      openAccessibilitySettings(): void;
+      openInputMonitoringSettings(): void;
+      closeSetupWindow(): unknown;
+      onAltState: (callback: (isDown: boolean) => void) => void;
 
       getConfig: () => Promise<VoiceOSConfig>;
 
       getKeyOptions: () => Promise<KeyOption[]>;
 
-      setTriggerKey: (
-        keyId: string
-      ) => Promise<unknown>;
+      setTriggerKey: (keyId: string) => Promise<unknown>;
 
       getModelOptions: () => Promise<ModelOption[]>;
 
-      setModel: (
-        modelId: string
-      ) => Promise<unknown>;
+      setModel: (modelId: string) => Promise<unknown>;
 
       getLanguageOptions: () => Promise<LanguageOption[]>;
 
       setLanguagePrefs: (
         primary: string,
-        secondary: string
+        secondary: string,
       ) => Promise<unknown>;
 
       startDictationTest: () => Promise<unknown>;
 
-      startKeyCapture: (
-        callback: (key: CapturedKey) => void
-      ) => () => void;
+      startKeyCapture: (callback: (key: CapturedKey) => void) => () => void;
 
       stopKeyCapture: () => void;
 
-      finishSetup: (
-        keyId: string,
-        modelId: string
-      ) => Promise<boolean>;
+      finishSetup: (keyId: string, modelId: string) => Promise<boolean>;
 
-      onTranscriptionResult: (
-        callback: (text: string) => void
-      ) => () => void;
+      onTranscriptionResult: (callback: (text: string) => void) => () => void;
 
-      sendAudioBuffer: (
-        arrayBuffer: ArrayBuffer
-      ) => void;
+      sendAudioBuffer: (arrayBuffer: ArrayBuffer) => void;
     };
   }
 }
