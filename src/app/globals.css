@@ -49,7 +49,7 @@ body {
   align-items: center;
   justify-content: center;
 
-  width: var(--idle-w);
+  width: 200px;
   height: var(--idle-h);
   border-radius: var(--idle-radius);
 
@@ -483,37 +483,3 @@ body {
   --bar-b: #9eafff;
   --shimmer: transparent;
 }
-
-/* ---------- NEW THEME TEMPLATE ----------
-   1. Copy this block, rename "your-theme".
-   2. Add { visual, bars, processing, orb, orbInResult, label, labels } for
-      "your-theme" to THEMES in page.tsx.
-   3. Set ACTIVE_THEME = "your-theme"  (or in the devtools console:
-      localStorage.setItem("voca-theme", "your-theme") and reload).
-
-.notch[data-theme="your-theme"] {
-  --ease: cubic-bezier(0.25, 1, 0.5, 1);
-  --font: -apple-system, "Segoe UI", sans-serif;
-
-  --idle-w: 120px;  --idle-h: 4px;   --idle-radius: 0 0 6px 6px;
-  --open-w: 280px;  --open-h: 40px;  --open-radius: 0 0 20px 20px;
-
-  --bg: #000;
-  --shadow: none;
-
-  --text: #fff;
-  --label: #aaa;
-
-  --accent: #9eafff;
-  --warn: #ffcf6b;
-  --chip-bg: rgba(255, 255, 255, 0.12);
-
-  --orb: #9eafff;           --orb-halo: rgba(158, 175, 255, 0.28);
-  --orb-ok: #7fd9a3;        --orb-ok-halo: rgba(127, 217, 163, 0.28);
-
-  --bar-a: #9eafff;         --bar-b: #d2deff;
-  --shimmer: rgba(255, 255, 255, 0.1);
-
-  /* optional fine-tuning (all have defaults):
-     --orb-size  --bar-w  --bar-gap  --bar-h  --content-gap
-     --result-align (start | center)  --typing  --orb-processing-display (none) */

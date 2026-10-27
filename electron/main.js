@@ -320,6 +320,11 @@ let vocaServer = null;
 let vocaBaseUrl = null;
 
 function startVocaServer() {
+  if (!app.isPackaged) {
+    vocaBaseUrl = "http://localhost:3000";
+    return Promise.resolve();
+  }
+  // ...rest unchanged
   // out/ sits next to the electron/ folder (same layout loadFile used before).
   const outDir = path.resolve(__dirname, "..", "out");
 
@@ -813,17 +818,23 @@ function setupIpc() {
   // Windows and Linux report "no permissions required".
   // ---------------------------------------------------------
 
-  ipcMain.handle("get-permission-status", () => {
-    const isMac = process.platform === "darwin";
+ipcMain.handle("get-permission-status", () => {
+  const isMac = process.platform === "darwin";
 
-    return {
-      platform: process.platform,
-      requiresPermissions: isMac,
-      accessibilityGranted: isMac
-        ? systemPreferences.isTrustedAccessibilityClient(false)
-        : true,
-    };
-  });
+  return {
+    platform: process.platform,
+    requiresPermissions: isMac,
+    accessibilityGranted: isMac
+      ? systemPreferences.isTrustedAccessibilityClient(false)
+      : true,
+    // Input Monitoring can't be queried directly on macOS, so we track
+    // whether the global hook has actually delivered a key event.
+    inputMonitoringGranted: isMac ? keyEventsReceived : true,
+    microphoneGranted: isMac
+      ? systemPreferences.getMediaAccessStatus("microphone") === "granted"
+      : true,
+  };
+});
 
   ipcMain.handle("open-accessibility-settings", async () => {
     if (process.platform !== "darwin") return false;

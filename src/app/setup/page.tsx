@@ -28,6 +28,8 @@ type PermissionStatus = {
   platform: string;
   requiresPermissions: boolean;
   accessibilityGranted: boolean;
+  inputMonitoringGranted: boolean;
+  microphoneGranted: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -63,17 +65,88 @@ function dotIndexForStep(step: Step): number {
   return DOT_STEPS.indexOf(step);
 }
 
+// ---------------------------------------------------------------------------
+// Permission icons (inline so there are no asset dependencies)
+// ---------------------------------------------------------------------------
+
+function PermissionIcon({ id }: { id: string }) {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+
+  if (id === "microphone") {
+    return (
+      <svg {...common}>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0" />
+        <path d="M12 18v3" />
+      </svg>
+    );
+  }
+
+  if (id === "accessibility") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="8" r="1" />
+        <path d="M8 10.5l4 .8 4-.8" />
+        <path d="M12 11.3V15l-1.8 3M12 15l1.8 3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <rect x="3" y="6" width="18" height="12" rx="3" />
+      <path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      className="permission-check"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      aria-hidden
+    >
+      <circle cx="8" cy="8" r="8" fill="#4caf7d" />
+      <path
+        d="M4.6 8.3l2.2 2.2 4.6-4.8"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function SetupPage() {
   const [step, setStep] = useState<Step>("welcome");
 
   const [currentKey, setCurrentKey] = useState<string>("ALT");
-  const [selectedKey, setSelectedKey] = useState<DetectedKey | any>(null);
+  const [selectedKey, setSelectedKey] = useState<DetectedKey | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [permissionStatus, setPermissionStatus] =
-    useState<PermissionStatus | any>(null);
+    useState<PermissionStatus | null>(null);
+  const [requestingMic, setRequestingMic] = useState(false);
+  const [justGranted, setJustGranted] = useState(false);
+  const prevPermissionsRef = useRef<PermissionStatus | null>(null);
 
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>(DEFAULT_MODEL);
@@ -159,6 +232,19 @@ export default function SetupPage() {
       try {
         const status = await window.voiceOS?.getPermissionStatus?.();
         if (!cancelled && status) {
+          const prev = prevPermissionsRef.current;
+
+          // Accessibility and Input Monitoring only take effect after a
+          // restart, so remember if one flipped to granted while we watched.
+          if (
+            prev &&
+            ((!prev.accessibilityGranted && status.accessibilityGranted) ||
+              (!prev.inputMonitoringGranted && status.inputMonitoringGranted))
+          ) {
+            setJustGranted(true);
+          }
+
+          prevPermissionsRef.current = status;
           setPermissionStatus(status);
         }
       } catch (error) {
@@ -212,6 +298,24 @@ export default function SetupPage() {
 
     return () => clearTimeout(t);
   }, [step]);
+
+  // -------------------------------------------------------------------------
+  // Permission actions
+  // -------------------------------------------------------------------------
+
+  async function handleRequestMicrophone() {
+    if (requestingMic) return;
+
+    setRequestingMic(true);
+
+    try {
+      await window.voiceOS?.requestMicrophone?.();
+    } catch (error) {
+      console.error("Failed to request microphone access:", error);
+    } finally {
+      setRequestingMic(false);
+    }
+  }
 
   // -------------------------------------------------------------------------
   // Save selected key (from change-key step)
@@ -333,11 +437,49 @@ export default function SetupPage() {
     );
   }
 
-  const accessibilityGranted = permissionStatus?.accessibilityGranted ?? false;
+  const permissionsLoaded = permissionStatus !== null;
   const permissionsRequired = permissionStatus?.requiresPermissions ?? false;
+  const accessibilityGranted = permissionStatus?.accessibilityGranted ?? false;
+  const inputMonitoringGranted =
+    permissionStatus?.inputMonitoringGranted ?? false;
+  const microphoneGranted = permissionStatus?.microphoneGranted ?? false;
 
+  const permissionItems = [
+    {
+      id: "microphone",
+      name: "Microphone",
+      desc: "Hear your voice",
+      granted: microphoneGranted,
+      actionLabel: requestingMic ? "Asking…" : "Allow",
+      busy: requestingMic,
+      onAction: handleRequestMicrophone,
+    },
+    {
+      id: "accessibility",
+      name: "Accessibility",
+      desc: "Type into your apps",
+      granted: accessibilityGranted,
+      actionLabel: "Open Settings",
+      busy: false,
+      onAction: () => window.voiceOS?.openAccessibilitySettings?.(),
+    },
+    {
+      id: "input-monitoring",
+      name: "Input Monitoring",
+      desc: "Detect your trigger key",
+      granted: inputMonitoringGranted,
+      actionLabel: "Open Settings",
+      busy: false,
+      onAction: () => window.voiceOS?.openInputMonitoringSettings?.(),
+    },
+  ];
+
+  const grantedCount = permissionItems.filter((p) => p.granted).length;
+
+  // Don't let people through before the first status check has come back
   const canContinuePastPermissions =
-    !permissionsRequired || accessibilityGranted;
+    permissionsLoaded &&
+    (!permissionsRequired || grantedCount === permissionItems.length);
 
   const selectedModelInstalled = models.some(
     (m) => m.id === model && m.installed,
@@ -405,60 +547,92 @@ export default function SetupPage() {
 
         {step === "permissions" && (
           <>
-            <h1 className="setup-title">Grant permissions</h1>
+            <h1 className="setup-title">Allow access</h1>
 
             <p className="setup-subtitle">
-              Voca watches for your trigger key system-wide, so macOS needs you
-              to allow it in two places.
+              Voca needs a few permissions to hear you and type for you. Your
+              voice is transcribed on this device.
             </p>
 
-            <div className="permission-list">
-              <div className="permission-row">
-                <div className="permission-info">
-                  <span className="permission-name">Accessibility</span>
-                  <span className="permission-desc" />
-                </div>
-
-                {accessibilityGranted ? (
-                  <span className="permission-status permission-status-granted">
-                    <span className="permission-dot permission-dot-granted" />
-                    Granted
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="permission-open-btn"
-                    onClick={() =>
-                      window.voiceOS?.openAccessibilitySettings?.()
-                    }
-                  >
-                    Open Settings
-                  </button>
-                )}
-              </div>
-
-              <div className="permission-row">
-                <div className="permission-info">
-                  <span className="permission-name">Input Monitoring</span>
-                </div>
-
-                <button
-                  type="button"
-                  className="permission-open-btn"
-                  onClick={() =>
-                    window.voiceOS?.openInputMonitoringSettings?.()
-                  }
+            {!permissionsLoaded ? (
+              <p className="setup-hint">Checking permissions…</p>
+            ) : permissionsRequired ? (
+              <>
+                <div
+                  className="permission-progress"
+                  role="status"
+                  aria-live="polite"
                 >
-                  Open Settings
-                </button>
-              </div>
-            </div>
+                  <div className="permission-progress-track">
+                    <div
+                      className="permission-progress-fill"
+                      style={{
+                        width: `${(grantedCount / permissionItems.length) * 100}%`,
+                      }}
+                    />
+                  </div>
 
-            {!permissionsRequired && (
-              <p className="setup-hint">
-                Your platform doesn&apos;t require these permissions —
-                you&apos;re all set here.
-              </p>
+                  <span className="permission-progress-label">
+                    {grantedCount} of {permissionItems.length} allowed
+                  </span>
+                </div>
+
+                <div className="permission-list">
+                  {permissionItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={
+                        "permission-row" +
+                        (item.granted ? " permission-row-granted" : "")
+                      }
+                    >
+                      <span className="permission-icon">
+                        <PermissionIcon id={item.id} />
+                      </span>
+
+                      <div className="permission-info">
+                        <span className="permission-name">{item.name}</span>
+                        <span className="permission-desc">{item.desc}</span>
+                      </div>
+
+                      {item.granted ? (
+                        <span className="permission-status permission-status-granted">
+                          <CheckIcon />
+                          Allowed
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="permission-open-btn"
+                          disabled={item.busy}
+                          onClick={item.onAction}
+                        >
+                          {item.actionLabel}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {!inputMonitoringGranted && (
+                  <p className="permission-note">
+                    After turning on Input Monitoring, press your trigger key
+                    once anywhere. That&apos;s how Voca confirms it.
+                  </p>
+                )}
+
+                {justGranted && (
+                  <p className="permission-note">
+                    Just allowed something in Settings? If it doesn&apos;t show
+                    up here, quit and reopen Voca.
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="permission-empty">
+                <CheckIcon />
+                <p>Nothing to allow on this system. You&apos;re good to go.</p>
+              </div>
             )}
 
             <div className="step-actions">
