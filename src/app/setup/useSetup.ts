@@ -1,0 +1,415 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  DEFAULT_DESIGN,
+  DEFAULT_MODEL,
+  DESIGN_STORAGE_KEY,
+  isDesignId,
+  type DesignId,
+  type DetectedKey,
+  type LanguageOption,
+  type ModelOption,
+  type PermissionItem,
+  type PermissionStatus,
+  type Step,
+} from "./setup.types";
+
+/**
+ * All state, effects and side effects (window.voiceOS calls, localStorage)
+ * for the setup flow. The UI only reads what this returns.
+ */
+export function useSetup() {
+  const [step, setStep] = useState<Step>("welcome");
+
+  const [currentKey, setCurrentKey] = useState<string>("ALT");
+  const [selectedKey, setSelectedKey] = useState<DetectedKey | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [permissionStatus, setPermissionStatus] =
+    useState<PermissionStatus | null>(null);
+  const [requestingMic, setRequestingMic] = useState(false);
+  const [justGranted, setJustGranted] = useState(false);
+  const prevPermissionsRef = useRef<PermissionStatus | null>(null);
+
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [model, setModel] = useState<string>(DEFAULT_MODEL);
+
+  const [languageOptions, setLanguageOptions] = useState<LanguageOption[]>([]);
+  const [primaryLang, setPrimaryLang] = useState<string>("auto");
+  const [secondaryLang, setSecondaryLang] = useState<string>("none");
+
+  const [design, setDesign] = useState<DesignId>(DEFAULT_DESIGN);
+
+  const [testText, setTestText] = useState("");
+  const testInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // ---- Load existing config and model install status ----------------------
+
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const savedDesign = localStorage.getItem(DESIGN_STORAGE_KEY);
+
+        if (isDesignId(savedDesign)) {
+          setDesign(savedDesign);
+        }
+      } catch {
+        // storage unavailable — keep the default design
+      }
+
+      try {
+        const config = await window.voiceOS?.getConfig?.();
+
+        if (config?.triggerKey) {
+          setCurrentKey(config.triggerKey.toUpperCase());
+        }
+
+        if (config?.primaryLanguage) {
+          setPrimaryLang(config.primaryLanguage);
+        }
+
+        if (config?.secondaryLanguage) {
+          setSecondaryLang(config.secondaryLanguage);
+        }
+
+        const langOptions = await window.voiceOS?.getLanguageOptions?.();
+
+        if (langOptions) {
+          setLanguageOptions(langOptions);
+        }
+
+        const options = await window.voiceOS?.getModelOptions?.();
+
+        if (options) {
+          const mapped: ModelOption[] = options.map((option: any) => ({
+            id: option.id,
+            label: option.label,
+            desc: option.installed ? "Ready to use" : "Not installed",
+            installed: Boolean(option.installed),
+          }));
+
+          setModels(mapped);
+
+          // Pick the saved model if it's installed, otherwise the first installed one
+          const savedId = config?.model ?? DEFAULT_MODEL;
+
+          if (mapped.some((m) => m.id === savedId && m.installed)) {
+            setModel(savedId);
+          } else {
+            const firstInstalled = mapped.find((m) => m.installed);
+            if (firstInstalled) {
+              setModel(firstInstalled.id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load Voca config:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadConfig();
+  }, []);
+
+  // ---- Poll permission status while on the permissions step ---------------
+
+  useEffect(() => {
+    if (step !== "permissions") return;
+
+    let cancelled = false;
+
+    async function checkPermissions() {
+      try {
+        const status = await window.voiceOS?.getPermissionStatus?.();
+        if (!cancelled && status) {
+          const prev = prevPermissionsRef.current;
+
+          // Accessibility and Input Monitoring only take effect after a
+          // restart, so remember if one flipped to granted while we watched.
+          if (
+            prev &&
+            ((!prev.accessibilityGranted && status.accessibilityGranted) ||
+              (!prev.inputMonitoringGranted && status.inputMonitoringGranted))
+          ) {
+            setJustGranted(true);
+          }
+
+          prevPermissionsRef.current = status;
+          setPermissionStatus(status);
+        }
+      } catch (error) {
+        console.error("Failed to read permission status:", error);
+      }
+    }
+
+    checkPermissions();
+
+    const interval = setInterval(checkPermissions, 1500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [step]);
+
+  // ---- Keyboard detection -------------------------------------------------
+
+  useEffect(() => {
+    if (step !== "change-key") {
+      window.voiceOS?.stopKeyCapture?.();
+      return;
+    }
+
+    setSelectedKey(null);
+
+    window.voiceOS?.startKeyCapture?.((key) => {
+      console.log("Detected key:", key);
+      setSelectedKey(key);
+    });
+
+    return () => {
+      window.voiceOS?.stopKeyCapture?.();
+    };
+  }, [step]);
+
+  // ---- Test step: start the overlay and focus the input -------------------
+
+  useEffect(() => {
+    if (step !== "test") return;
+
+    window.voiceOS?.startDictationTest?.();
+
+    const t = setTimeout(() => testInputRef.current?.focus(), 150);
+
+    return () => clearTimeout(t);
+  }, [step]);
+
+  // ---- Actions ------------------------------------------------------------
+
+  async function handleRequestMicrophone() {
+    if (requestingMic) return;
+
+    setRequestingMic(true);
+
+    try {
+      await window.voiceOS?.requestMicrophone?.();
+    } catch (error) {
+      console.error("Failed to request microphone access:", error);
+    } finally {
+      setRequestingMic(false);
+    }
+  }
+
+  async function handleSaveKey() {
+    if (!selectedKey || saving) return;
+
+    setSaving(true);
+
+    try {
+      await window.voiceOS?.setTriggerKey?.(selectedKey.id);
+
+      setCurrentKey(selectedKey.label.toUpperCase());
+      setStep("model");
+    } catch (error) {
+      console.error("Failed to save trigger key:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleContinueWithCurrentKey() {
+    setStep("model");
+  }
+
+  async function handleContinueFromModel() {
+    if (saving) return;
+
+    const selected = models.find((m) => m.id === model);
+    if (!selected?.installed) return;
+
+    setSaving(true);
+
+    try {
+      await window.voiceOS?.setModel?.(model);
+
+      setStep("language");
+    } catch (error) {
+      console.error("Failed to save model:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // One primary language (or Auto) and an optional secondary language.
+  // The secondary can't be the primary, and is ignored when primary is Auto.
+  function choosePrimary(id: string) {
+    setPrimaryLang(id);
+
+    if (id === "auto" || id === secondaryLang) {
+      setSecondaryLang("none");
+    }
+  }
+
+  async function handleContinueFromLanguage() {
+    if (saving) return;
+
+    setSaving(true);
+
+    try {
+      await window.voiceOS?.setLanguagePrefs?.(primaryLang, secondaryLang);
+
+      setStep("design");
+    } catch (error) {
+      console.error("Failed to save languages:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Stored under the same key the notch window reads; the notch picks it up
+  // live through the "storage" event.
+  function chooseDesign(id: DesignId) {
+    setDesign(id);
+
+    try {
+      localStorage.setItem(DESIGN_STORAGE_KEY, id);
+    } catch (error) {
+      console.error("Failed to save design:", error);
+    }
+  }
+
+  async function handleFinishSetup() {
+    if (saving) return;
+
+    setSaving(true);
+
+    try {
+      await window.voiceOS?.finishSetup?.(currentKey.toLowerCase(), model);
+
+      setStep("done");
+    } catch (error) {
+      console.error("Failed to finish setup:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCloseSetup() {
+    window.voiceOS?.closeSetupWindow?.();
+  }
+
+  // ---- Derived values -----------------------------------------------------
+
+  const permissionsLoaded = permissionStatus !== null;
+  const permissionsRequired = permissionStatus?.requiresPermissions ?? false;
+  const accessibilityGranted = permissionStatus?.accessibilityGranted ?? false;
+  const inputMonitoringGranted =
+    permissionStatus?.inputMonitoringGranted ?? false;
+  const microphoneGranted = permissionStatus?.microphoneGranted ?? false;
+
+  const permissionItems: PermissionItem[] = [
+    {
+      id: "microphone",
+      name: "Microphone",
+      desc: "Hear your voice",
+      granted: microphoneGranted,
+      actionLabel: requestingMic ? "Asking…" : "Allow",
+      busy: requestingMic,
+      onAction: handleRequestMicrophone,
+    },
+    {
+      id: "accessibility",
+      name: "Accessibility",
+      desc: "Type into your apps",
+      granted: accessibilityGranted,
+      actionLabel: "Open Settings",
+      busy: false,
+      onAction: () => window.voiceOS?.openAccessibilitySettings?.(),
+    },
+    {
+      id: "input-monitoring",
+      name: "Input Monitoring",
+      desc: "Detect your trigger key",
+      granted: inputMonitoringGranted,
+      actionLabel: "Open Settings",
+      busy: false,
+      onAction: () => window.voiceOS?.openInputMonitoringSettings?.(),
+    },
+  ];
+
+  const grantedCount = permissionItems.filter((p) => p.granted).length;
+
+  // Don't let people through before the first status check has come back
+  const canContinuePastPermissions =
+    permissionsLoaded &&
+    (!permissionsRequired || grantedCount === permissionItems.length);
+
+  const selectedModelInstalled = models.some(
+    (m) => m.id === model && m.installed,
+  );
+
+  const noModelsInstalled =
+    models.length > 0 && models.every((m) => !m.installed);
+
+  return {
+    step,
+    setStep,
+    loading,
+    saving,
+
+    currentKey,
+    selectedKey,
+
+    permissions: {
+      loaded: permissionsLoaded,
+      required: permissionsRequired,
+      items: permissionItems,
+      grantedCount,
+      inputMonitoringGranted,
+      justGranted,
+      canContinue: canContinuePastPermissions,
+    },
+
+    models: {
+      list: models,
+      selectedId: model,
+      select: setModel,
+      selectedInstalled: selectedModelInstalled,
+      noneInstalled: noModelsInstalled,
+    },
+
+    languages: {
+      options: languageOptions,
+      primary: primaryLang,
+      secondary: secondaryLang,
+      choosePrimary,
+      chooseSecondary: setSecondaryLang,
+    },
+
+    design: {
+      selected: design,
+      choose: chooseDesign,
+    },
+
+    test: {
+      text: testText,
+      setText: setTestText,
+      inputRef: testInputRef,
+    },
+
+    actions: {
+      saveKey: handleSaveKey,
+      continueWithCurrentKey: handleContinueWithCurrentKey,
+      continueFromModel: handleContinueFromModel,
+      continueFromLanguage: handleContinueFromLanguage,
+      finishSetup: handleFinishSetup,
+      closeSetup: handleCloseSetup,
+    },
+  };
+}
+
+export type SetupState = ReturnType<typeof useSetup>;

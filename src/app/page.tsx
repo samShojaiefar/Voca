@@ -124,11 +124,11 @@ type ThemeConfig = {
 };
 
 const THEMES: Record<string, ThemeConfig> = {
-  // Minimal, Apple-like: pure black pill, orange mic dot, thin white
-  // waveform, iMessage-style typing dots, system font.
-  apple: {
+  // Notch: pure black, attached to the top edge with rounded bottom
+  // corners. Orange mic dot, thin white waveform, typing dots.
+  notch: {
     visual: "bars",
-    bars: 5,
+    bars: 9,
     processing: "typing",
     orb: true,
     orbInResult: false,
@@ -136,7 +136,19 @@ const THEMES: Record<string, ThemeConfig> = {
     labels: { listening: "Listening", processing: "Transcribing" },
   },
 
-  // Glass pill, glowing orb, live voice bars.
+  // Island: the same pieces as the notch, but a fully rounded pill that
+  // floats a little below the top edge, like Dynamic Island.
+  island: {
+    visual: "bars",
+    bars: 9,
+    processing: "typing",
+    orb: true,
+    orbInResult: false,
+    label: false,
+    labels: { listening: "Listening", processing: "Transcribing" },
+  },
+
+  // Glass pill, glowing orb, live voice bars. (not offered in the picker)
   glass: {
     visual: "bars",
     bars: 7,
@@ -159,22 +171,25 @@ const THEMES: Record<string, ThemeConfig> = {
   },
 };
 
-const ACTIVE_THEME = "apple";
+const ACTIVE_THEME = "notch";
 const THEME_STORAGE_KEY = "voca-theme";
 
-// How strongly a bar reacts to your voice (middle bars move the most).
+// How strongly a bar reacts to your voice (middle bars move the most, the
+// outer bars still move a good amount so the whole row reads as one wave).
 function barWeight(i: number, count: number) {
   const mid = (count - 1) / 2;
 
-  return mid === 0 ? 1 : 1 - (Math.abs(i - mid) / mid) * 0.6;
+  return mid === 0 ? 1 : 1 - (Math.abs(i - mid) / mid) * 0.35;
 }
-
-// "emoji heart" -> only an emoji came back -> show it big with a pop.
-const EMOJI_ONLY =
-  /^[\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f\s]+$/u;
 
 // main.js reuses the result channel for the Ctrl+Shift+L confirmation.
 const LANGUAGE_MESSAGE = /^Language:\s*(.+)$/i;
+
+// whisper returns this when it heard nothing.
+const BLANK_AUDIO = "[BLANK_AUDIO]";
+
+// "search google for <query>" opens a Google search.
+const SEARCH_PREFIX = "search google for ";
 
 type NotchState = "idle" | "listening" | "processing" | "result";
 
@@ -227,8 +242,9 @@ function Visualizer({
       bars.forEach((bar, i) => {
         if (!bar) return;
 
-        const idle = 0.2 + 0.08 * Math.sin(t / 220 + i * 0.9);
-        const wobble = 0.75 + 0.25 * Math.sin(t / 95 + i * 1.7);
+        // a gentle travelling wave even when you are silent
+        const idle = 0.22 + 0.12 * Math.sin(t / 220 + i * 0.7);
+        const wobble = 0.7 + 0.3 * Math.sin(t / 95 + i * 1.7);
         const h = Math.min(1, idle + v * barWeight(i, bars.length) * wobble);
 
         bar.style.transform = `scaleY(${h.toFixed(3)})`;
@@ -273,10 +289,11 @@ function Visualizer({
 }
 
 // ---------------------------------------------------------------------------
-// Result: normal text, a language switch confirmation, or a lone emoji.
+// Result: only short status messages are shown (language switch, "try
+// another time"). What you dictate is never displayed in the notch.
 // ---------------------------------------------------------------------------
 
-function ResultContent({ text, orb }: { text: string; orb: boolean }) {
+function ResultContent({ text }: { text: string }) {
   const language = text.match(LANGUAGE_MESSAGE);
 
   if (language) {
@@ -290,44 +307,10 @@ function ResultContent({ text, orb }: { text: string; orb: boolean }) {
     );
   }
 
-  if (EMOJI_ONLY.test(text)) {
-    return (
-      <div className="notch-content notch-content-center">
-        <span className="notch-result-emoji">{text.trim()}</span>
-      </div>
-    );
-  }
-const lastSearchRef = useRef("");
-
-useEffect(() => {
-  const normalizedText = text.trim();
-
-  if (!normalizedText.toLowerCase().startsWith("search google for ")) {
-    return;
-  }
-
-  if (lastSearchRef.current === normalizedText) {
-    return;
-  }
-
-  const query = normalizedText.slice("search google for ".length).trim();
-
-  if (!query) return;
-
-  lastSearchRef.current = normalizedText;
-
-  window.open(
-    `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-    "_blank"
-  );
-}, [text]);
   return (
     <div className="notch-content">
-      {/* {orb && <span className="notch-orb" />} */}
       <span className="notch-result" dir="auto">
-{text === "[BLANK_AUDIO]"
-  ? "Try another time"
-  : text}
+        {text}
       </span>
     </div>
   );
@@ -335,7 +318,7 @@ useEffect(() => {
 
 export default function Home() {
   const [notchState, setNotchState] = useState<NotchState>("idle");
-  const [transcript, setTranscript] = useState("");
+  const [message, setMessage] = useState("");
   const [theme, setTheme] = useState<string>(ACTIVE_THEME);
 
   const notchRef = useRef<HTMLDivElement | null>(null);
@@ -352,7 +335,9 @@ export default function Home() {
     null,
   );
 
-  // Optional live override for trying designs without editing the code.
+  // The design picked on the setup page. Read once on mount, and follow
+  // changes live (the "storage" event fires here when the setup window
+  // saves a new choice).
   useEffect(() => {
     try {
       const saved = localStorage.getItem(THEME_STORAGE_KEY);
@@ -363,6 +348,16 @@ export default function Home() {
     } catch {
       // storage unavailable — keep ACTIVE_THEME
     }
+
+    function onStorage(e: StorageEvent) {
+      if (e.key === THEME_STORAGE_KEY && e.newValue && THEMES[e.newValue]) {
+        setTheme(e.newValue);
+      }
+    }
+
+    window.addEventListener("storage", onStorage);
+
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   // Set up the mic graph once, on mount, so holding the trigger key never
@@ -471,7 +466,7 @@ export default function Home() {
         if (hideTimerRef.current) {
           clearTimeout(hideTimerRef.current);
         }
-        setTranscript("");
+        setMessage("");
         setNotchState("listening");
 
         chunksRef.current = [];
@@ -519,19 +514,40 @@ export default function Home() {
         return;
       }
 
-      setTranscript(text);
+      const trimmed = text.trim();
+
+      // Voice command: "search google for ..." opens a Google search.
+      if (trimmed.toLowerCase().startsWith(SEARCH_PREFIX)) {
+        const query = trimmed.slice(SEARCH_PREFIX.length).trim();
+
+        if (query) {
+          window.open(
+            `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+            "_blank",
+          );
+        }
+      }
+
+      const isLanguage = LANGUAGE_MESSAGE.test(trimmed);
+      const isBlank = trimmed === BLANK_AUDIO;
+
+      // Normal dictation is typed into the active app, so the notch just
+      // closes. Only status messages stay on screen for a moment.
+      if (!isLanguage && !isBlank) {
+        setNotchState("idle");
+        return;
+      }
+
+      setMessage(isBlank ? "Try another time" : trimmed);
       setNotchState("result");
 
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current);
       }
 
-      // The language-switch confirmation is just a quick flash.
-      const showFor = LANGUAGE_MESSAGE.test(text) ? 1800 : 5000;
-
       hideTimerRef.current = setTimeout(() => {
         setNotchState("idle");
-      }, showFor);
+      }, 1800);
     });
 
     return () => {
@@ -558,8 +574,6 @@ export default function Home() {
       >
         {live && (
           <div key="live" className="notch-content">
-            {config.orb && <span className="notch-orb" />}
-
             <Visualizer
               visual={config.visual}
               bars={config.bars}
@@ -580,11 +594,7 @@ export default function Home() {
         )}
 
         {notchState === "result" && (
-          <ResultContent
-            key="result"
-            text={transcript}
-            orb={config.orb && config.orbInResult}
-          />
+          <ResultContent key="result" text={message} />
         )}
       </div>
     </main>

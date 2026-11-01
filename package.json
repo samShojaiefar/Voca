@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "geist": "^1.8.2",
+    "lucide": "^1.66.0",
+    "lucide-react": "^1.66.0",
     "next": "16.3.5",
     "nodejs-whisper": "^0.3.1",
     "react": "19.2.8",
@@ -35,33 +37,35 @@
     "typescript": "^5",
     "wait-on": "^9.1.0"
   },
-"build": {
-  "appId": "com.samshojaiefar.voca",
-  "productName": "Voca",
-  "directories": { "output": "dist" },
-  "files": [
-    "out/**/*",
-    "electron/**/*",
-    "package.json",
-    "node_modules/**/*",
-    "!electron/whisper.cpp/**/*"
-  ],
-  "extraResources": [
-    {
-      "from": "electron/whisper.cpp/build/bin",
-      "to": "whisper.cpp/build/bin",
-      "filter": ["**/*"]
+  "build": {
+    "appId": "com.samshojaiefar.voca",
+    "productName": "Voca",
+    "directories": {
+      "output": "dist"
     },
-    {
-      "from": "electron/whisper.cpp/models",
-      "to": "whisper.cpp/models",
-      "filter": ["*.bin"]
+    "files": [
+      "out/**/*",
+      "electron/**/*",
+      "package.json",
+      "node_modules/**/*",
+      "!electron/whisper.cpp/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/whisper.cpp/build/bin",
+        "to": "whisper.cpp/build/bin",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "electron/whisper.cpp/models",
+        "to": "whisper.cpp/models",
+        "filter": ["*.bin"]
+      }
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": "nsis",
+      "signExecutable": false
     }
-  ],
-  "win": {
-    "icon": "build/icon.png",
-    "target": "nsis",
-    "signExecutable": false
   }
-}
 }

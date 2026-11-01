@@ -49,8 +49,9 @@ body {
   align-items: center;
   justify-content: center;
 
-  width: 200px;
+  width: var(--idle-width, 200px);
   height: var(--idle-h);
+  margin-top: var(--top-offset, 0px);
   border-radius: var(--idle-radius);
 
   background: var(--bg);
@@ -352,15 +353,15 @@ body {
    (ACTIVE_THEME) — both blocks can stay in the file.
    ========================================================================= */
 
-/* ---------- apple (default): minimal, Dynamic-Island-like ---------- */
+/* ---------- notch (default): attached to the top edge ---------- */
 
-.notch[data-theme="apple"] {
+.notch[data-theme="notch"] {
   /* the iOS / macOS "spring-like" ease */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
     "Segoe UI", sans-serif;
 
-  --idle-w: 64px;
+  --idle-width: 104px;
   --idle-h: 3px;
   --idle-radius: 0 0 3px 3px;
   --open-w: 260px;
@@ -388,6 +389,54 @@ body {
   --content-gap: 10px;
 
   /* thin white waveform */
+  --bar-a: rgba(255, 255, 255, 0.85);
+  --bar-b: #fff;
+  --bar-w: 2.5px;
+  --bar-gap: 3px;
+  --bar-h: 16px;
+
+  --typing: rgba(255, 255, 255, 0.6);
+  --shimmer: transparent;
+}
+
+/* ---------- island: floating pill, like Dynamic Island ---------- */
+
+.notch[data-theme="island"] {
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+    "Segoe UI", sans-serif;
+
+  /* floats this far below the top edge — the Electron window must be at
+     least --top-offset + --open-h + a little shadow room tall */
+  --top-offset: 8px;
+
+  /* small resting pill (set --idle-h to 0px to hide it when idle) */
+  --idle-width: 72px;
+  --idle-h: 10px;
+  --idle-radius: 999px;
+  --open-w: 60px;
+  --open-h: 40px;
+  --open-radius: 999px;
+
+  --bg: #000;
+  --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
+
+  --text: #fff;
+  --label: rgba(255, 255, 255, 0.6);
+  --result-align: center;
+
+  --accent: rgba(255, 255, 255, 0.85);
+  --warn: #ff9f0a;
+  --chip-bg: #ffffff24;
+
+  --orb: #ff9f0a;
+  --orb-size: 8px;
+  --orb-halo: transparent;
+  --orb-ok: #30d158;
+  --orb-ok-halo: transparent;
+  --orb-processing-display: none;
+  --content-gap: 10px;
+
   --bar-a: rgba(255, 255, 255, 0.85);
   --bar-b: #fff;
   --bar-w: 2.5px;

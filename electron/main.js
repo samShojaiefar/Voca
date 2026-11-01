@@ -633,11 +633,11 @@ function createNotchWindow() {
 
 function createSetupWindow() {
   setupWin = new BrowserWindow({
-    width: 800,
-    height: 700,
+    width: 1300,
+    height: 800,
 
-    resizable: false,
-    frame: true,
+    resizable: true,
+    frame: false,
     center: true,
 
     title: "Set up Voca",
