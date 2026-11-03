@@ -74,6 +74,16 @@ body {
   border-radius: var(--open-radius);
 }
 
+/* result state can be wider than the live state; --result-w is measured
+   from the message text in page.tsx */
+.notch[data-state="result"] {
+  width: var(--result-w, var(--open-w));
+}
+
+.notch[data-state="result"] .notch-content {
+  width: var(--result-w, var(--open-w));
+}
+
 /* ---- content wrapper (fades in every time the content changes) ---- */
 
 .notch-content {
@@ -279,6 +289,12 @@ body {
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 
+/* status messages are measured to fit, so no edge fade */
+.notch[data-state="result"] .notch-result {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 .notch-result-emoji {
   font-size: 22px;
   line-height: 1;
@@ -312,8 +328,7 @@ body {
   text-transform: uppercase;
   color: var(--accent);
   background: var(--chip-bg);
-    font-family: var(--font-geist-pixel-square), sans-serif;
-
+  font-family: var(--font-geist-pixel-square), sans-serif;
 }
 
 /* ---- shimmer sweep while transcribing ---- */
@@ -408,7 +423,7 @@ body {
 
   /* floats this far below the top edge — the Electron window must be at
      least --top-offset + --open-h + a little shadow room tall */
-  --top-offset: 8px;
+  --top-offset: 95vh;
 
   /* small resting pill (set --idle-h to 0px to hide it when idle) */
   --idle-width: 72px;
@@ -454,7 +469,7 @@ body {
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* size */
-  --idle-w: 120px;
+  --idle-width: 120px;
   --idle-h: 4px;
   --idle-radius: 0 0 6px 6px;
   --open-w: 280px;
@@ -506,7 +521,7 @@ body {
   --ease: ease;
   --font: Arial, Helvetica, sans-serif;
 
-  --idle-w: 200px;
+  --idle-width: 200px;
   --idle-h: 5px;
   --idle-radius: 0 0 8px 8px;
   --open-w: 280px;

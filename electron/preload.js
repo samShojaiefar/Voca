@@ -4,7 +4,7 @@ const {
 } = require("electron");
 
 contextBridge.exposeInMainWorld(
-  "voiceOS",
+  "voca",
   {
     // -------------------------------------------------------
     // Existing notch listener

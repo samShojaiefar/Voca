@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 const TARGET_SAMPLE_RATE = 16000;
 
@@ -360,6 +360,59 @@ export default function Home() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Size the notch to fit the result message (works for every theme).
+  // The text is measured at its natural width and fed back to the CSS as
+  // --result-w, so the existing width transition animates the change.
+  // It is measured again once fonts are ready, because the pixel font can
+  // finish loading after the first measurement.
+  useLayoutEffect(() => {
+    const notch = notchRef.current;
+    if (!notch) return;
+
+    if (notchState !== "result") {
+      notch.style.removeProperty("--result-w");
+      return;
+    }
+
+    let cancelled = false;
+
+    const measure = () => {
+      if (cancelled) return;
+
+      const content = notch.querySelector<HTMLElement>(".notch-content");
+      const text = notch.querySelector<HTMLElement>(".notch-result");
+      const tag = notch.querySelector<HTMLElement>(".notch-tag");
+      if (!content || !text) return;
+
+      // measure the text at its natural width
+      const prevFlex = text.style.flex;
+      text.style.flex = "none";
+      const textW = text.getBoundingClientRect().width;
+      text.style.flex = prevFlex;
+
+      const gap = parseFloat(getComputedStyle(content).columnGap) || 0;
+      const tagW = tag ? tag.getBoundingClientRect().width + gap : 0;
+      const padding = 36; // 18px each side, from .notch-content
+
+      const openW =
+        parseFloat(getComputedStyle(notch).getPropertyValue("--open-w")) || 0;
+      const max = window.innerWidth - 16;
+      const width = Math.min(
+        max,
+        Math.max(openW, Math.ceil(textW + tagW + padding)),
+      );
+
+      notch.style.setProperty("--result-w", `${width}px`);
+    };
+
+    measure();
+    document.fonts?.ready.then(measure);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [notchState, message]);
+
   // Set up the mic graph once, on mount, so holding the trigger key never
   // has to wait on a getUserMedia round trip. The mic stays open but is
   // only captured into `chunksRef` while `recordingRef.current` is true.
@@ -454,13 +507,13 @@ export default function Home() {
     const pcm16 = floatTo16BitPCM(downsampled);
     const wav = encodeWav(pcm16, TARGET_SAMPLE_RATE);
 
-    window.voiceOS?.sendAudioBuffer?.(wav);
+    window.voca?.sendAudioBuffer?.(wav);
 
     return true;
   }
 
   useEffect(() => {
-    window.voiceOS?.onAltState((isDown) => {
+    window.voca?.onAltState((isDown) => {
       if (isDown) {
         // Fresh press — clear any leftover result and start listening.
         if (hideTimerRef.current) {
@@ -501,7 +554,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = window.voiceOS?.onTranscriptionResult?.((text) => {
+    const unsubscribe = window.voca?.onTranscriptionResult?.((text) => {
       console.log("[Voca] Transcript:", text);
 
       if (processingTimeoutRef.current) {

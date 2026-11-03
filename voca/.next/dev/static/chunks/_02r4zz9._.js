@@ -667,12 +667,12 @@ function Home() {
         const downsampled = downsampleBuffer(merged, audioCtx.sampleRate, TARGET_SAMPLE_RATE);
         const pcm16 = floatTo16BitPCM(downsampled);
         const wav = encodeWav(pcm16, TARGET_SAMPLE_RATE);
-        window.voiceOS?.sendAudioBuffer?.(wav);
+        window.voca?.sendAudioBuffer?.(wav);
         return true;
     }
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "Home.useEffect": ()=>{
-            window.voiceOS?.onAltState({
+            window.voca?.onAltState({
                 "Home.useEffect": (isDown)=>{
                     if (isDown) {
                         // Fresh press — clear any leftover result and start listening.
@@ -715,7 +715,7 @@ function Home() {
     }["Home.useEffect"], []);
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "Home.useEffect": ()=>{
-            const unsubscribe = window.voiceOS?.onTranscriptionResult?.({
+            const unsubscribe = window.voca?.onTranscriptionResult?.({
                 "Home.useEffect": (text)=>{
                     console.log("[Voca] Transcript:", text);
                     if (processingTimeoutRef.current) {

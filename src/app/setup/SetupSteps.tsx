@@ -1,6 +1,6 @@
 "use client";
 
-// Presentational step components. They only receive props: no window.voiceOS,
+// Presentational step components. They only receive props: no window.voca,
 // no localStorage, no effects. All behaviour comes from useSetup().
 // (LanguageSelect keeps purely local UI state: open / query / highlighted row.)
 
@@ -91,7 +91,7 @@ function StepActions({
         onClick={onNext}
         disabled={nextDisabled}
       >
-        {nextLabel}
+        <span> {nextLabel}</span>
       </button>
     </div>
   );
@@ -127,7 +127,12 @@ function LanguageSelect<T extends string>({
   function openMenu() {
     if (disabled) return;
     setQuery("");
-    setActive(Math.max(0, options.findIndex((o) => o.id === value)));
+    setActive(
+      Math.max(
+        0,
+        options.findIndex((o) => o.id === value),
+      ),
+    );
     setOpen(true);
   }
 
@@ -365,7 +370,7 @@ export function PermissionsStep({
       <StepActions
         onBack={onBack}
         onNext={onNext}
-        nextLabel="Next →"
+        nextLabel="Continue →"
         nextDisabled={!permissions.canContinue}
       />
     </>
@@ -404,7 +409,7 @@ export function CurrentKeyStep({
       <StepActions
         onBack={onBack}
         onNext={onNext}
-        nextLabel="Next →"
+        nextLabel="Continue →"
         backDisabled={saving}
         nextDisabled={saving}
       />

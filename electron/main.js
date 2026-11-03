@@ -583,7 +583,7 @@ function createNotchWindow() {
   // Just enough to comfortably fit the expanded bar (40px) plus a little
   // breathing room — text now renders inside the bar itself, not a
   // separate panel below it, so we don't need the extra height anymore.
-  const windowHeight = 60;
+  const windowHeight = 1000;
 
   notchWin = new BrowserWindow({
     width: windowWidth,
@@ -632,25 +632,26 @@ function createNotchWindow() {
 }
 
 function createSetupWindow() {
-  setupWin = new BrowserWindow({
-    width: 1300,
-    height: 800,
+setupWin = new BrowserWindow({
+  width: 1050,
+  height: 700,
+  resizable: true,
+  center: true,
+  title: "Set up Voca",
 
-    resizable: true,
-    frame: false,
-    center: true,
+  titleBarStyle: "hidden",
+  titleBarOverlay: {
+    color: "#fff",       // title bar background
+    symbolColor: "#1e1e1e", // minimize/maximize/close icons
+    height: 36,
+  },
 
-    title: "Set up Voca",
-
-    webPreferences: {
-      preload: path.join(
-        __dirname,
-        "preload.js"
-      ),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
+  webPreferences: {
+    preload: path.join(__dirname, "preload.js"),
+    contextIsolation: true,
+    nodeIntegration: false,
+  },
+});
 
   setupWin.loadURL(`${vocaBaseUrl}/setup`);
 

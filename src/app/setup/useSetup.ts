@@ -16,7 +16,7 @@ import {
 } from "./setup.types";
 
 /**
- * All state, effects and side effects (window.voiceOS calls, localStorage)
+ * All state, effects and side effects (window.voca calls, localStorage)
  * for the setup flow. The UI only reads what this returns.
  */
 export function useSetup() {
@@ -61,7 +61,7 @@ export function useSetup() {
       }
 
       try {
-        const config = await window.voiceOS?.getConfig?.();
+        const config = await window.voca?.getConfig?.();
 
         if (config?.triggerKey) {
           setCurrentKey(config.triggerKey.toUpperCase());
@@ -75,13 +75,13 @@ export function useSetup() {
           setSecondaryLang(config.secondaryLanguage);
         }
 
-        const langOptions = await window.voiceOS?.getLanguageOptions?.();
+        const langOptions = await window.voca?.getLanguageOptions?.();
 
         if (langOptions) {
           setLanguageOptions(langOptions);
         }
 
-        const options = await window.voiceOS?.getModelOptions?.();
+        const options = await window.voca?.getModelOptions?.();
 
         if (options) {
           const mapped: ModelOption[] = options.map((option: any) => ({
@@ -124,7 +124,7 @@ export function useSetup() {
 
     async function checkPermissions() {
       try {
-        const status = await window.voiceOS?.getPermissionStatus?.();
+        const status = await window.voca?.getPermissionStatus?.();
         if (!cancelled && status) {
           const prev = prevPermissionsRef.current;
 
@@ -160,19 +160,19 @@ export function useSetup() {
 
   useEffect(() => {
     if (step !== "change-key") {
-      window.voiceOS?.stopKeyCapture?.();
+      window.voca?.stopKeyCapture?.();
       return;
     }
 
     setSelectedKey(null);
 
-    window.voiceOS?.startKeyCapture?.((key) => {
+    window.voca?.startKeyCapture?.((key) => {
       console.log("Detected key:", key);
       setSelectedKey(key);
     });
 
     return () => {
-      window.voiceOS?.stopKeyCapture?.();
+      window.voca?.stopKeyCapture?.();
     };
   }, [step]);
 
@@ -181,7 +181,7 @@ export function useSetup() {
   useEffect(() => {
     if (step !== "test") return;
 
-    window.voiceOS?.startDictationTest?.();
+    window.voca?.startDictationTest?.();
 
     const t = setTimeout(() => testInputRef.current?.focus(), 150);
 
@@ -196,7 +196,7 @@ export function useSetup() {
     setRequestingMic(true);
 
     try {
-      await window.voiceOS?.requestMicrophone?.();
+      await window.voca?.requestMicrophone?.();
     } catch (error) {
       console.error("Failed to request microphone access:", error);
     } finally {
@@ -210,7 +210,7 @@ export function useSetup() {
     setSaving(true);
 
     try {
-      await window.voiceOS?.setTriggerKey?.(selectedKey.id);
+      await window.voca?.setTriggerKey?.(selectedKey.id);
 
       setCurrentKey(selectedKey.label.toUpperCase());
       setStep("model");
@@ -234,7 +234,7 @@ export function useSetup() {
     setSaving(true);
 
     try {
-      await window.voiceOS?.setModel?.(model);
+      await window.voca?.setModel?.(model);
 
       setStep("language");
     } catch (error) {
@@ -260,7 +260,7 @@ export function useSetup() {
     setSaving(true);
 
     try {
-      await window.voiceOS?.setLanguagePrefs?.(primaryLang, secondaryLang);
+      await window.voca?.setLanguagePrefs?.(primaryLang, secondaryLang);
 
       setStep("design");
     } catch (error) {
@@ -288,7 +288,7 @@ export function useSetup() {
     setSaving(true);
 
     try {
-      await window.voiceOS?.finishSetup?.(currentKey.toLowerCase(), model);
+      await window.voca?.finishSetup?.(currentKey.toLowerCase(), model);
 
       setStep("done");
     } catch (error) {
@@ -299,7 +299,7 @@ export function useSetup() {
   }
 
   function handleCloseSetup() {
-    window.voiceOS?.closeSetupWindow?.();
+    window.voca?.closeSetupWindow?.();
   }
 
   // ---- Derived values -----------------------------------------------------
@@ -328,7 +328,7 @@ export function useSetup() {
       granted: accessibilityGranted,
       actionLabel: "Open Settings",
       busy: false,
-      onAction: () => window.voiceOS?.openAccessibilitySettings?.(),
+      onAction: () => window.voca?.openAccessibilitySettings?.(),
     },
     {
       id: "input-monitoring",
@@ -337,7 +337,7 @@ export function useSetup() {
       granted: inputMonitoringGranted,
       actionLabel: "Open Settings",
       busy: false,
-      onAction: () => window.voiceOS?.openInputMonitoringSettings?.(),
+      onAction: () => window.voca?.openInputMonitoringSettings?.(),
     },
   ];
 

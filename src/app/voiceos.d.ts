@@ -21,7 +21,7 @@ type LanguageOption = {
   label: string;
 };
 
-type VoiceOSConfig = {
+type vocaConfig = {
   triggerKey?: string;
   triggerKeyCode?: number;
   triggerKeyLabel?: string;
@@ -33,14 +33,14 @@ type VoiceOSConfig = {
 
 declare global {
   interface Window {
-    voiceOS: {
+    voca: {
       getPermissionStatus: () => Promise<PermissionStatus>;
       openAccessibilitySettings(): void;
       openInputMonitoringSettings(): void;
       closeSetupWindow(): unknown;
       onAltState: (callback: (isDown: boolean) => void) => void;
 
-      getConfig: () => Promise<VoiceOSConfig>;
+      getConfig: () => Promise<vocaConfig>;
 
       getKeyOptions: () => Promise<KeyOption[]>;
 
