@@ -179,8 +179,51 @@ contextBridge.exposeInMainWorld(
         arrayBuffer
       );
     },
+
+    // -------------------------------------------------------
+    // NEW: accounts (main page)
+    // -------------------------------------------------------
+
+    getAccounts: () => ipcRenderer.invoke("get-accounts"),
+
+    addAccount: (data) => ipcRenderer.invoke("add-account", data),
+
+    updateAccount: (id, patch) =>
+      ipcRenderer.invoke("update-account", id, patch),
+
+    removeAccount: (id) => ipcRenderer.invoke("remove-account", id),
+
+    setActiveAccount: (id) =>
+      ipcRenderer.invoke("set-active-account", id),
+
+    openSetupWindow: () => {
+      ipcRenderer.send("open-setup-window");
+    },
+
+    resetSetup: () => ipcRenderer.invoke("reset-setup"),
+
+    // -------------------------------------------------------
+    // NEW: dictation history (main page)
+    // -------------------------------------------------------
+
+    getHistory: () => ipcRenderer.invoke("get-history"),
+
+    clearHistory: () => ipcRenderer.invoke("clear-history"),
+
+    setSaveHistory: (on) => ipcRenderer.invoke("set-save-history", on),
+
+    openHistoryFolder: () => ipcRenderer.invoke("open-history-folder"),
+
+    onHistoryUpdated: (callback) => {
+      const handler = (_event, list) => {
+        callback(list);
+      };
+
+      ipcRenderer.on("history-updated", handler);
+
+      return () => {
+        ipcRenderer.removeListener("history-updated", handler);
+      };
+    },
   }
 );
-
-
-

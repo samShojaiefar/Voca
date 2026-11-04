@@ -2,7 +2,7 @@
 // No React in here.
 
 export type DetectedKey = {
-  id: string;
+  id: number;
   label: string;
 };
 
@@ -18,13 +18,16 @@ export type LanguageOption = {
   label: string;
 };
 
-export type PermissionStatus = {
+export interface PermissionStatus {
   platform: string;
   requiresPermissions: boolean;
   accessibilityGranted: boolean;
-  inputMonitoringGranted: boolean;
-  microphoneGranted: boolean;
-};
+
+  // Optional because the current Electron API
+  // doesn't necessarily return these yet.
+  inputMonitoringGranted?: boolean;
+  microphoneGranted?: boolean;
+}
 
 export type PermissionItem = {
   id: string;

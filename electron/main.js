@@ -12,6 +12,7 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 const os = require("os");
+const { randomUUID } = require("crypto");
 const { spawn } = require("child_process");
 const { uIOhook, UiohookKey } = require("uiohook-napi");
 
@@ -112,26 +113,107 @@ const LANGUAGE_SWITCH_KEY = UiohookKey.L; // used together with Ctrl + Shift
 
 const LANGUAGE_OPTIONS = [
   { id: "auto", label: "Auto-detect" },
+
   { id: "en", label: "English" },
-  { id: "fa", label: "Persian" },
-  { id: "ar", label: "Arabic" },
-  { id: "tr", label: "Turkish" },
-  { id: "es", label: "Spanish" },
-  { id: "fr", label: "French" },
-  { id: "de", label: "German" },
-  { id: "it", label: "Italian" },
-  { id: "pt", label: "Portuguese" },
-  { id: "ru", label: "Russian" },
-  { id: "uk", label: "Ukrainian" },
-  { id: "pl", label: "Polish" },
-  { id: "nl", label: "Dutch" },
-  { id: "hi", label: "Hindi" },
-  { id: "ur", label: "Urdu" },
   { id: "zh", label: "Chinese" },
-  { id: "ja", label: "Japanese" },
+  { id: "de", label: "German" },
+  { id: "es", label: "Spanish" },
+  { id: "ru", label: "Russian" },
   { id: "ko", label: "Korean" },
-  { id: "he", label: "Hebrew" },
+  { id: "fr", label: "French" },
+  { id: "ja", label: "Japanese" },
+  { id: "pt", label: "Portuguese" },
+  { id: "tr", label: "Turkish" },
+  { id: "pl", label: "Polish" },
+  { id: "ca", label: "Catalan" },
+  { id: "nl", label: "Dutch" },
+  { id: "ar", label: "Arabic" },
+  { id: "sv", label: "Swedish" },
+  { id: "it", label: "Italian" },
   { id: "id", label: "Indonesian" },
+  { id: "hi", label: "Hindi" },
+  { id: "fi", label: "Finnish" },
+  { id: "vi", label: "Vietnamese" },
+  { id: "he", label: "Hebrew" },
+  { id: "uk", label: "Ukrainian" },
+  { id: "el", label: "Greek" },
+  { id: "ms", label: "Malay" },
+  { id: "cs", label: "Czech" },
+  { id: "ro", label: "Romanian" },
+  { id: "da", label: "Danish" },
+  { id: "hu", label: "Hungarian" },
+  { id: "ta", label: "Tamil" },
+  { id: "no", label: "Norwegian" },
+  { id: "th", label: "Thai" },
+  { id: "ur", label: "Urdu" },
+  { id: "hr", label: "Croatian" },
+  { id: "bg", label: "Bulgarian" },
+  { id: "lt", label: "Lithuanian" },
+  { id: "la", label: "Latin" },
+  { id: "mi", label: "Maori" },
+  { id: "ml", label: "Malayalam" },
+  { id: "cy", label: "Welsh" },
+  { id: "sk", label: "Slovak" },
+  { id: "te", label: "Telugu" },
+  { id: "fa", label: "Persian" },
+  { id: "lv", label: "Latvian" },
+  { id: "bn", label: "Bengali" },
+  { id: "sr", label: "Serbian" },
+  { id: "az", label: "Azerbaijani" },
+  { id: "sl", label: "Slovenian" },
+  { id: "kn", label: "Kannada" },
+  { id: "et", label: "Estonian" },
+  { id: "mk", label: "Macedonian" },
+  { id: "br", label: "Breton" },
+  { id: "eu", label: "Basque" },
+  { id: "is", label: "Icelandic" },
+  { id: "hy", label: "Armenian" },
+  { id: "ne", label: "Nepali" },
+  { id: "mn", label: "Mongolian" },
+  { id: "bs", label: "Bosnian" },
+  { id: "kk", label: "Kazakh" },
+  { id: "sq", label: "Albanian" },
+  { id: "sw", label: "Swahili" },
+  { id: "gl", label: "Galician" },
+  { id: "mr", label: "Marathi" },
+  { id: "pa", label: "Punjabi" },
+  { id: "si", label: "Sinhala" },
+  { id: "km", label: "Khmer" },
+  { id: "sn", label: "Shona" },
+  { id: "yo", label: "Yoruba" },
+  { id: "so", label: "Somali" },
+  { id: "af", label: "Afrikaans" },
+  { id: "oc", label: "Occitan" },
+  { id: "ka", label: "Georgian" },
+  { id: "be", label: "Belarusian" },
+  { id: "tg", label: "Tajik" },
+  { id: "sd", label: "Sindhi" },
+  { id: "gu", label: "Gujarati" },
+  { id: "am", label: "Amharic" },
+  { id: "yi", label: "Yiddish" },
+  { id: "lo", label: "Lao" },
+  { id: "uz", label: "Uzbek" },
+  { id: "fo", label: "Faroese" },
+  { id: "ht", label: "Haitian Creole" },
+  { id: "ps", label: "Pashto" },
+  { id: "tk", label: "Turkmen" },
+  { id: "nn", label: "Norwegian Nynorsk" },
+  { id: "mt", label: "Maltese" },
+  { id: "sa", label: "Sanskrit" },
+  { id: "lb", label: "Luxembourgish" },
+  { id: "my", label: "Myanmar" },
+  { id: "bo", label: "Tibetan" },
+  { id: "tl", label: "Tagalog" },
+  { id: "mg", label: "Malagasy" },
+  { id: "as", label: "Assamese" },
+  { id: "tt", label: "Tatar" },
+  { id: "haw", label: "Hawaiian" },
+  { id: "ln", label: "Lingala" },
+  { id: "ha", label: "Hausa" },
+  { id: "ba", label: "Bashkir" },
+  { id: "jw", label: "Javanese" },
+  { id: "su", label: "Sundanese" },
+  { id: "yue", label: "Cantonese" },
 ];
 
 function isValidLanguageId(id) {
@@ -270,6 +352,9 @@ const DEFAULT_CONFIG = {
   secondaryLanguage: "none",
   activeLanguage: "primary",
   setupComplete: false,
+  accounts: [], // [{ id, name, email, provider }]
+  activeAccountId: null,
+  saveHistoryToFile: false, // also append dictations to a .md file
 };
 
 const CONFIG_PATH = path.join(
@@ -311,6 +396,52 @@ let config = loadConfig();
 
 let notchWin = null;
 let setupWin = null;
+let mainWin = null;
+
+// ---------------------------------------------------------------------------
+// Dictation history (text only, kept in RAM; optional daily .md file)
+// ---------------------------------------------------------------------------
+
+const MAX_HISTORY = 100;
+let dictationHistory = []; // [{ id, text, at }]
+
+function historyDir() {
+  return path.join(app.getPath("documents"), "Voca");
+}
+
+function appendToMarkdown(text) {
+  if (!config.saveHistoryToFile) return;
+
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const entry = `## ${pad(d.getHours())}:${pad(d.getMinutes())}\n\n${text}\n\n`;
+
+  try {
+    fs.mkdirSync(historyDir(), { recursive: true });
+    fs.appendFile(path.join(historyDir(), `${day}.md`), entry, (err) => {
+      if (err) console.error("[Voca] Could not write history:", err);
+    });
+  } catch (err) {
+    console.error("[Voca] Could not write history:", err);
+  }
+}
+
+function addToHistory(text) {
+  const t = String(text || "").trim();
+  if (!t) return;
+
+  dictationHistory.unshift({ id: randomUUID(), text: t, at: Date.now() });
+  if (dictationHistory.length > MAX_HISTORY) {
+    dictationHistory.length = MAX_HISTORY;
+  }
+
+  appendToMarkdown(t);
+
+  if (mainWin && !mainWin.isDestroyed()) {
+    mainWin.webContents.send("history-updated", dictationHistory);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Local static server for the exported Next.js frontend (out/)
@@ -662,7 +793,51 @@ setupWin = new BrowserWindow({
     // quit whenever setup was closed without being finished.
     if (!config.setupComplete) {
       app.quit();
+    } else {
+      // Setup finished (or was reopened and closed): make sure the
+      // main page is open and in front. No-op if it's already open.
+      createMainWindow();
     }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Main window (opens on launch after setup; separate from the setup page)
+// ---------------------------------------------------------------------------
+
+function createMainWindow() {
+  if (mainWin && !mainWin.isDestroyed()) {
+    if (mainWin.isMinimized()) mainWin.restore();
+    mainWin.focus();
+    return;
+  }
+
+  mainWin = new BrowserWindow({
+    width: 980,
+    height: 680,
+    minWidth: 720,
+    minHeight: 480,
+    center: true,
+    title: "Voca",
+
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      color: "#fff",
+      symbolColor: "#1e1e1e",
+      height: 36,
+    },
+
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  mainWin.loadURL(`${vocaBaseUrl}/home`);
+
+  mainWin.on("closed", () => {
+    mainWin = null;
   });
 }
 
@@ -705,6 +880,8 @@ function completeSetupAndLaunchNotch(
   if (!notchWin) {
     createNotchWindow();
   }
+
+  createMainWindow();
 }
 
 // ---------------------------------------------------------------------------
@@ -739,6 +916,99 @@ function stopKeyCapture() {
 // ---------------------------------------------------------------------------
 
 function setupIpc() {
+  // -------------------------------------------------------
+  // Accounts (main page)
+  // -------------------------------------------------------
+
+  const accountsState = () => ({
+    accounts: config.accounts,
+    activeAccountId: config.activeAccountId,
+  });
+
+  ipcMain.handle("get-accounts", () => accountsState());
+
+  ipcMain.handle("add-account", (_e, data = {}) => {
+    const account = {
+      id: randomUUID(),
+      name: String(data.name || "").trim(),
+      email: String(data.email || "").trim(),
+      provider: data.provider || "local",
+    };
+    config.accounts.push(account);
+    if (!config.activeAccountId) config.activeAccountId = account.id;
+    saveConfig(config);
+    return accountsState();
+  });
+
+  ipcMain.handle("update-account", (_e, id, patch = {}) => {
+    const acc = config.accounts.find((a) => a.id === id);
+    if (acc) {
+      if (typeof patch.name === "string") acc.name = patch.name.trim();
+      if (typeof patch.email === "string") acc.email = patch.email.trim();
+      saveConfig(config);
+    }
+    return accountsState();
+  });
+
+  ipcMain.handle("remove-account", (_e, id) => {
+    config.accounts = config.accounts.filter((a) => a.id !== id);
+    if (config.activeAccountId === id) {
+      config.activeAccountId = config.accounts[0]?.id ?? null;
+    }
+    saveConfig(config);
+    return accountsState();
+  });
+
+  ipcMain.handle("set-active-account", (_e, id) => {
+    if (config.accounts.some((a) => a.id === id)) {
+      config.activeAccountId = id;
+      saveConfig(config);
+    }
+    return accountsState();
+  });
+
+  // Lets the main page reopen setup without it being the launch screen
+  ipcMain.on("open-setup-window", () => {
+    if (!setupWin || setupWin.isDestroyed()) createSetupWindow();
+    else setupWin.focus();
+  });
+
+  // -------------------------------------------------------
+  // Dictation history (main page)
+  // -------------------------------------------------------
+
+  ipcMain.handle("get-history", () => dictationHistory);
+
+  ipcMain.handle("clear-history", () => {
+    dictationHistory = [];
+    return dictationHistory;
+  });
+
+  ipcMain.handle("set-save-history", (_e, on) => {
+    config.saveHistoryToFile = !!on;
+    saveConfig(config);
+    return config;
+  });
+
+  ipcMain.handle("open-history-folder", async () => {
+    fs.mkdirSync(historyDir(), { recursive: true });
+    return shell.openPath(historyDir());
+  });
+
+  // Testing helper: next launch opens the setup page again
+  ipcMain.handle("reset-setup", () => {
+    config.setupComplete = false;
+    saveConfig(config);
+    return true;
+  });
+
+  // Saves the name asked in setup (preload already calls this)
+  ipcMain.handle("set-user-name", (_e, name) => {
+    config.userName = String(name || "").trim();
+    saveConfig(config);
+    return config;
+  });
+
   ipcMain.handle(
     "get-key-options",
     () =>
@@ -1419,6 +1689,7 @@ function runWhisper(wavPath, lang) {
 
     // NEW: also write the text into the currently focused input.
     if (text) {
+      addToHistory(text);
       typeIntoActiveApp(text);
     }
   });
@@ -1619,6 +1890,14 @@ function setupKeyboard() {
 // App lifecycle
 // ---------------------------------------------------------------------------
 
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (config.setupComplete) createMainWindow();
+  });
+}
+
 app.whenReady().then(async () => {
   // Auto-grant mic access to our own windows so no OS-level
   // Chromium permission prompt has to appear (the notch window
@@ -1634,7 +1913,13 @@ app.whenReady().then(async () => {
 
     setupIpc();
     setupKeyboard();
-    createSetupWindow();
+
+    if (config.setupComplete) {
+      createMainWindow();
+      createNotchWindow();
+    } else {
+      createSetupWindow();
+    }
   } catch (error) {
     console.error("[Voca] Failed to start:", error);
     app.quit();

@@ -1061,6 +1061,7 @@ select {
   align-items: center;
   gap: 8px;
 }
+
 .lang-select {
   position: relative;
   width: 100%;

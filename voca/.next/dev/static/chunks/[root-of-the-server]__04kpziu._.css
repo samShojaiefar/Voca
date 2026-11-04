@@ -181,7 +181,7 @@ html, body {
     height .45s var(--ease),
     border-radius .45s var(--ease),
     box-shadow .3s ease;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
   justify-content: center;
   align-items: center;
   display: flex;

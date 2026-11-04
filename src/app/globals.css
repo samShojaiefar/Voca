@@ -65,7 +65,7 @@ body {
     border-radius 0.45s var(--ease),
     box-shadow 0.3s ease;
 
-  -webkit-app-region: no-drag;
+  /* -webkit-app-region: drag; */
 }
 /* any state except idle = open */
 .notch:not([data-state="idle"]) {

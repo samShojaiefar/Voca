@@ -7,7 +7,6 @@ import {
   DESIGN_STORAGE_KEY,
   isDesignId,
   type DesignId,
-  type DetectedKey,
   type LanguageOption,
   type ModelOption,
   type PermissionItem,
@@ -23,7 +22,7 @@ export function useSetup() {
   const [step, setStep] = useState<Step>("welcome");
 
   const [currentKey, setCurrentKey] = useState<string>("ALT");
-  const [selectedKey, setSelectedKey] = useState<DetectedKey | null>(null);
+  const [selectedKey, setSelectedKey] = useState<CapturedKey  | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
