@@ -503,7 +503,9 @@
   font-size: 11px;
   cursor: pointer;
 
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .lang-select-option:hover,
@@ -683,9 +685,9 @@
     padding: 20px;
   }
 }
-.searchinput{
-    border: none !important;
-    outline: none !important;
+.searchinput {
+  border: none !important;
+  outline: none !important;
 }
 
 .language-description {
@@ -716,10 +718,19 @@
   white-space: nowrap;
 }
 
-
-h2,kbd,.history-time,.history-text,.language-description,.keyboard-key,.lang-select-option-selected,.language-label,.lang-select-option{
-      font-family: var(--font-geist-pixel-square), sans-serif !important;
-
+h2,
+kbd,
+.dsg-description,
+.history-note,
+.dsg-name,
+.history-time,
+.history-text,
+.language-description,
+.keyboard-key,
+.lang-select-option-selected,
+.language-label,
+.lang-select-option {
+  font-family: var(--font-geist-pixel-square), sans-serif !important;
 }
 /* Design picker card on the home page. Class names are prefixed "dsg-"
    so they can't clash with page.css or setup.css. */
@@ -862,8 +873,134 @@ h2,kbd,.history-time,.history-text,.language-description,.keyboard-key,.lang-sel
   background: #fff;
 }
 
-.dsg-bars i:nth-child(1) { height: 5px; }
-.dsg-bars i:nth-child(2) { height: 9px; }
-.dsg-bars i:nth-child(3) { height: 14px; }
-.dsg-bars i:nth-child(4) { height: 8px; }
-.dsg-bars i:nth-child(5) { height: 5px; }
+.dsg-bars i:nth-child(1) {
+  height: 5px;
+}
+.dsg-bars i:nth-child(2) {
+  height: 9px;
+}
+.dsg-bars i:nth-child(3) {
+  height: 14px;
+}
+.dsg-bars i:nth-child(4) {
+  height: 8px;
+}
+.dsg-bars i:nth-child(5) {
+  height: 5px;
+}
+/* =================================
+   CONFIRM MODAL
+================================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 18, 28, 0.35);
+  backdrop-filter: blur(3px);
+  animation: modal-fade-in 0.16s ease both;
+}
+
+.modal {
+  width: 100%;
+  max-width: 380px;
+  padding: 26px;
+  background: #fff;
+  border: 1px solid #e8eaf0;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  color: #171717;
+  font-family: var(--font-pixel), sans-serif;
+  animation: modal-pop-in 0.2s ease both;
+}
+
+.modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: #fdecec;
+  color: #c2413b;
+}
+
+.modal-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.modal-text {
+  margin: 0 0 22px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dashboard-btn.danger {
+  background: #fdecec;
+  border-color: #f5c9c6;
+  color: #b3362f;
+}
+
+.dashboard-btn.danger:hover {
+  background: #fbdcda;
+  border-color: #efb1ac;
+}
+
+.modal-overlay .dashboard-btn:focus-visible,
+.modal .dashboard-btn:focus-visible {
+  outline: 3px solid #b8c8ff;
+  outline-offset: 3px;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 600px) {
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions .dashboard-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal {
+    animation: none;
+  }
+}

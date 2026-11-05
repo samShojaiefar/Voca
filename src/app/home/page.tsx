@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import "./page.css";
-import { Copy, CopyCheck, ChevronDown, Search, Check } from "lucide-react";
+import {
+  Copy,
+  CopyCheck,
+  ChevronDown,
+  Search,
+  Check,
+  AlertTriangle,
+} from "lucide-react";
 
 // ========================================
 // TYPES
@@ -168,6 +175,7 @@ export default function HomePage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [saveToFile, setSaveToFile] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
   // ---- languages ----
 
@@ -239,6 +247,19 @@ export default function HomePage() {
       if (typeof off === "function") off();
     };
   }, []);
+
+  // Escape closes the clear-history modal
+  useEffect(() => {
+    if (!confirmClearOpen) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setConfirmClearOpen(false);
+    };
+
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmClearOpen]);
 
   // Design: read the saved choice, and stay in sync if another window
   // (e.g. the setup window) changes it.
@@ -359,6 +380,7 @@ export default function HomePage() {
   // ========================================
 
   return (
+    <>
     <main className="dashboard">
       {/* =========================================
           RECENT DICTATIONS
@@ -371,9 +393,7 @@ export default function HomePage() {
           <button
             className="dashboard-btn"
             disabled={history.length === 0}
-            onClick={async () => {
-              setHistory(await voca().clearHistory());
-            }}
+            onClick={() => setConfirmClearOpen(true)}
           >
             Clear
           </button>
@@ -432,8 +452,9 @@ export default function HomePage() {
         </div>
 
         <p className="history-note">
-          Saved as one file per day in Documents/Voca. Off by default. The list
-          above is cleared when you close the app.
+          Saved as one file per day in Documents/Voca. Off by default. Your most
+          recent dictations are loaded from these files when the app starts.
+          Clearing the list also erases the contents of these files.
         </p>
       </section>
 
@@ -580,5 +601,56 @@ export default function HomePage() {
         </div>
       </section>
     </main>
+
+      {confirmClearOpen && (
+        <div
+          className="modal-overlay"
+          onClick={() => setConfirmClearOpen(false)}
+        >
+          <div
+            className="modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="clear-modal-title"
+            aria-describedby="clear-modal-text"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-icon" aria-hidden>
+              <AlertTriangle size={20} />
+            </div>
+
+            <h3 id="clear-modal-title" className="modal-title">
+              Clear all dictation history?
+            </h3>
+
+            <p id="clear-modal-text" className="modal-text">
+              This removes everything in the list and erases the contents of
+              the saved .md files in Documents/Voca. The files themselves stay.
+              This can&apos;t be undone.
+            </p>
+
+            <div className="modal-actions">
+              <button
+                className="dashboard-btn"
+                onClick={() => setConfirmClearOpen(false)}
+                autoFocus
+              >
+                Cancel
+              </button>
+
+              <button
+                className="dashboard-btn danger"
+                onClick={async () => {
+                  setConfirmClearOpen(false);
+                  setHistory(await voca().clearHistory());
+                }}
+              >
+                Clear history
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

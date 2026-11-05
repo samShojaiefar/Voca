@@ -5,6 +5,10 @@ export type DetectedKey = {
   id: number;
   label: string;
 };
+export type CapturedKey = {
+  id: number;
+  label: string;
+};
 
 export type ModelOption = {
   id: string;
@@ -13,15 +17,17 @@ export type ModelOption = {
   installed: boolean;
 };
 
+
+
 export type LanguageOption = {
   id: string;
   label: string;
 };
 
 export interface PermissionStatus {
-  platform: string;
-  requiresPermissions: boolean;
-  accessibilityGranted: boolean;
+  platform: any;
+  requiresPermissions: any;
+  accessibilityGranted: any;
 
   // Optional because the current Electron API
   // doesn't necessarily return these yet.

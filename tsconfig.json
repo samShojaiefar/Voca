@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "electron/main.js", "electron/preload.js", "src/app/setup/page.tsx"  ],
+, "electron/main.js", "electron/preload.js", "src/app/setup/page.tsx", "src/app/setup/useSetup.ts"  ],
   "exclude": ["node_modules"]
 }

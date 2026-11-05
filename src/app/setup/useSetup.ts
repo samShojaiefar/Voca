@@ -6,6 +6,7 @@ import {
   DEFAULT_MODEL,
   DESIGN_STORAGE_KEY,
   isDesignId,
+  type CapturedKey,
   type DesignId,
   type LanguageOption,
   type ModelOption,
@@ -22,16 +23,16 @@ export function useSetup() {
   const [step, setStep] = useState<Step>("welcome");
 
   const [currentKey, setCurrentKey] = useState<string>("ALT");
-  const [selectedKey, setSelectedKey] = useState<CapturedKey  | null>(null);
+  const [selectedKey, setSelectedKey] = useState<CapturedKey | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [permissionStatus, setPermissionStatus] =
-    useState<PermissionStatus | null>(null);
+    useState<any>(null);
   const [requestingMic, setRequestingMic] = useState(false);
   const [justGranted, setJustGranted] = useState(false);
-  const prevPermissionsRef = useRef<PermissionStatus | null>(null);
+  const prevPermissionsRef = useRef<any>(null);
 
   const [models, setModels] = useState<ModelOption[]>([]);
   const [model, setModel] = useState<string>(DEFAULT_MODEL);
@@ -123,7 +124,9 @@ export function useSetup() {
 
     async function checkPermissions() {
       try {
-        const status = await window.voca?.getPermissionStatus?.();
+        const status = (await window.voca?.getPermissionStatus?.()) as unknown as
+          | PermissionStatus
+          | undefined;
         if (!cancelled && status) {
           const prev = prevPermissionsRef.current;
 
@@ -165,7 +168,7 @@ export function useSetup() {
 
     setSelectedKey(null);
 
-    window.voca?.startKeyCapture?.((key) => {
+    window.voca?.startKeyCapture?.((key: any) => {
       console.log("Detected key:", key);
       setSelectedKey(key);
     });
@@ -195,7 +198,8 @@ export function useSetup() {
     setRequestingMic(true);
 
     try {
-      await window.voca?.requestMicrophone?.();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
     } catch (error) {
       console.error("Failed to request microphone access:", error);
     } finally {
@@ -209,7 +213,7 @@ export function useSetup() {
     setSaving(true);
 
     try {
-      await window.voca?.setTriggerKey?.(selectedKey.id);
+      await window.voca?.setTriggerKey?.(selectedKey.id.toString());
 
       setCurrentKey(selectedKey.label.toUpperCase());
       setStep("model");

@@ -399,15 +399,91 @@ let setupWin = null;
 let mainWin = null;
 
 // ---------------------------------------------------------------------------
-// Dictation history (text only, kept in RAM; optional daily .md file)
+// Dictation history (kept in RAM, loaded from the daily .md files at startup)
 // ---------------------------------------------------------------------------
 
 const MAX_HISTORY = 100;
-let dictationHistory = []; // [{ id, text, at }]
 
 function historyDir() {
   return path.join(app.getPath("documents"), "Voca");
 }
+
+// Reads the daily YYYY-MM-DD.md files (format written by appendToMarkdown:
+// "## HH:MM\n\ntext\n\n") and returns newest-first, capped at MAX_HISTORY.
+function loadHistoryFromMarkdown() {
+  const items = [];
+
+  try {
+    const files = fs
+      .readdirSync(historyDir())
+      .filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f))
+      .sort()
+      .reverse(); // newest day first
+
+    for (const file of files) {
+      const [y, m, d] = file.slice(0, 10).split("-").map(Number);
+      const raw = fs
+        .readFileSync(path.join(historyDir(), file), "utf-8")
+        .replace(/\r\n/g, "\n");
+
+      // Split on "## HH:MM" headings; parts = [pre, hh, mm, text, hh, mm, text, ...]
+      const parts = raw.split(/^## (\d{2}):(\d{2})[ \t]*$/m);
+
+      const dayEntries = [];
+      for (let i = 1; i + 2 < parts.length; i += 3) {
+        const text = (parts[i + 2] || "").trim();
+        if (!text) continue;
+
+        dayEntries.push({
+          id: `${file}-${i}`,
+          text,
+          at: new Date(
+            y,
+            m - 1,
+            d,
+            Number(parts[i]),
+            Number(parts[i + 1])
+          ).getTime(),
+        });
+      }
+
+      items.push(...dayEntries.reverse()); // newest entry first within the day
+
+      if (items.length >= MAX_HISTORY) break;
+    }
+  } catch (err) {
+    // Folder doesn't exist yet: start empty
+    if (err.code !== "ENOENT") {
+      console.error("[Voca] Could not read history:", err);
+    }
+  }
+
+  return items.slice(0, MAX_HISTORY);
+}
+
+// Empties the contents of the daily YYYY-MM-DD.md files. The files themselves
+// are kept. Other files in the folder are left alone.
+function clearHistoryFileContents() {
+  try {
+    const files = fs
+      .readdirSync(historyDir())
+      .filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f));
+
+    for (const file of files) {
+      try {
+        fs.writeFileSync(path.join(historyDir(), file), "");
+      } catch (err) {
+        console.error("[Voca] Could not clear", file, err);
+      }
+    }
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.error("[Voca] Could not clear history files:", err);
+    }
+  }
+}
+
+let dictationHistory = loadHistoryFromMarkdown(); // [{ id, text, at }]
 
 function appendToMarkdown(text) {
   if (!config.saveHistoryToFile) return;
@@ -981,6 +1057,7 @@ function setupIpc() {
 
   ipcMain.handle("clear-history", () => {
     dictationHistory = [];
+    clearHistoryFileContents();
     return dictationHistory;
   });
 
