@@ -62,10 +62,8 @@
         "filter": ["*.bin"]
       }
     ],
-    "win": {
-      "icon": "build/icon.png",
-      "target": "nsis",
-      "signExecutable": false
-    }
+  "win": {
+    "icon": "electron/icon.ico"
+  }
   }
 }

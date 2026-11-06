@@ -1,6 +1,9 @@
 const {
   app,
   BrowserWindow,
+  Tray,
+  Menu,
+  nativeImage,
   screen,
   ipcMain,
   session,
@@ -914,6 +917,45 @@ function createMainWindow() {
 
   mainWin.on("closed", () => {
     mainWin = null;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// System tray (keeps Voca running in the background)
+// ---------------------------------------------------------------------------
+
+let tray = null;
+
+function createTray() {
+  if (tray) return;
+
+  // Put a 256x256 (or at least 32x32) icon.ico at this path.
+  // Packaged builds must include it: either list it in the "files" globs,
+  // or add it to extraResources and use
+  // path.join(process.resourcesPath, "icon.ico") when app.isPackaged.
+  const iconPath = path.join(__dirname, "icon.ico");
+  const icon = nativeImage.createFromPath(iconPath);
+
+  tray = new Tray(icon);
+  tray.setToolTip("Voca");
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: "Open Voca",
+      click: () => {
+        if (config.setupComplete) createMainWindow();
+        else if (!setupWin) createSetupWindow();
+      },
+    },
+    { type: "separator" },
+    { label: "Quit Voca", click: () => app.quit() },
+  ]);
+
+  tray.setContextMenu(menu);
+
+  // Left-click the tray icon opens the main window
+  tray.on("click", () => {
+    if (config.setupComplete) createMainWindow();
   });
 }
 
@@ -1990,6 +2032,7 @@ app.whenReady().then(async () => {
 
     setupIpc();
     setupKeyboard();
+    createTray();
 
     if (config.setupComplete) {
       createMainWindow();
