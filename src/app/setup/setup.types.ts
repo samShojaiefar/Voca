@@ -63,6 +63,36 @@ export function isDesignId(value: unknown): value is DesignId {
   return DESIGNS.some((d) => d.id === value);
 }
 
+// The two fonts for the text shown in the notch.
+export type FontId = "pixel" | "serif";
+
+export const FONT_STORAGE_KEY = "voca-font";
+export const DEFAULT_FONT: FontId = "pixel";
+
+export const FONTS: {
+  id: FontId;
+  label: string;
+  desc: string;
+  cssVar: string;
+}[] = [
+  {
+    id: "pixel",
+    label: "Pixel",
+    desc: "Geist Pixel Square",
+    cssVar: "var(--font-geist-pixel-square)",
+  },
+  {
+    id: "serif",
+    label: "Serif",
+    desc: "Geist Serif Square",
+    cssVar: "var(--font-geist-serif-square)",
+  },
+];
+
+export function isFontId(value: unknown): value is FontId {
+  return FONTS.some((f) => f.id === value);
+}
+
 export type Step =
   | "welcome"
   | "permissions"
@@ -71,6 +101,7 @@ export type Step =
   | "model"
   | "language"
   | "design"
+  | "font"
   | "test"
   | "done";
 
@@ -83,6 +114,7 @@ export const DOT_STEPS: Step[] = [
   "model",
   "language",
   "design",
+  "font",
   "test",
 ];
 

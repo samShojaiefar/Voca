@@ -13,7 +13,7 @@
     "dist": "bun run build && electron-builder --win"
   },
   "dependencies": {
-    "geist": "^1.8.2",
+    "geist": "^1.9.2",
     "lucide": "^1.66.0",
     "lucide-react": "^1.66.0",
     "next": "16.3.5",
@@ -62,8 +62,8 @@
         "filter": ["*.bin"]
       }
     ],
-  "win": {
-    "icon": "electron/icon.ico"
-  }
+    "win": {
+      "icon": "electron/icon.ico"
+    }
   }
 }

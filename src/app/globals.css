@@ -278,7 +278,7 @@ body {
   text-align: var(--result-align, start);
   white-space: nowrap;
   overflow: hidden;
-  font-family: var(--font-geist-pixel-square), sans-serif;
+  font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif;
 
   /* long dictation fades out at the edge instead of a hard "…" */
   -webkit-mask-image: linear-gradient(
@@ -328,7 +328,7 @@ body {
   text-transform: uppercase;
   color: var(--accent);
   background: var(--chip-bg);
-  font-family: var(--font-geist-pixel-square), sans-serif;
+  font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif;
 }
 
 /* ---- shimmer sweep while transcribing ---- */

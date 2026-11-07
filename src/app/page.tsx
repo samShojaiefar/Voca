@@ -174,6 +174,13 @@ const THEMES: Record<string, ThemeConfig> = {
 const ACTIVE_THEME = "notch";
 const THEME_STORAGE_KEY = "voca-theme";
 
+// The font picked on the setup page (ids and keys match setup.types.ts).
+const FONT_STORAGE_KEY = "voca-font";
+const FONT_CSS_VARS: Record<string, string> = {
+  pixel: "var(--font-geist-pixel-square)",
+  serif: "var(--font-geist-serif-square)",
+};
+
 // How strongly a bar reacts to your voice (middle bars move the most, the
 // outer bars still move a good amount so the whole row reads as one wave).
 function barWeight(i: number, count: number) {
@@ -320,6 +327,7 @@ export default function Home() {
   const [notchState, setNotchState] = useState<NotchState>("idle");
   const [message, setMessage] = useState("");
   const [theme, setTheme] = useState<string>(ACTIVE_THEME);
+  const [fontId, setFontId] = useState<string>("pixel");
 
   const notchRef = useRef<HTMLDivElement | null>(null);
   const levelRef = useRef(0);
@@ -345,13 +353,23 @@ export default function Home() {
       if (saved && THEMES[saved]) {
         setTheme(saved);
       }
+
+      const savedFont = localStorage.getItem(FONT_STORAGE_KEY);
+
+      if (savedFont && FONT_CSS_VARS[savedFont]) {
+        setFontId(savedFont);
+      }
     } catch {
-      // storage unavailable — keep ACTIVE_THEME
+      // storage unavailable — keep ACTIVE_THEME and the default font
     }
 
     function onStorage(e: StorageEvent) {
       if (e.key === THEME_STORAGE_KEY && e.newValue && THEMES[e.newValue]) {
         setTheme(e.newValue);
+      }
+
+      if (e.key === FONT_STORAGE_KEY && e.newValue && FONT_CSS_VARS[e.newValue]) {
+        setFontId(e.newValue);
       }
     }
 
@@ -411,7 +429,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [notchState, message]);
+  }, [notchState, message, fontId]);
 
   // Set up the mic graph once, on mount, so holding the trigger key never
   // has to wait on a getUserMedia round trip. The mic stays open but is
@@ -624,6 +642,11 @@ export default function Home() {
         className="notch"
         data-theme={theme}
         data-state={notchState}
+        style={
+          {
+            "--notch-font": FONT_CSS_VARS[fontId] ?? FONT_CSS_VARS.pixel,
+          } as React.CSSProperties
+        }
       >
         {live && (
           <div key="live" className="notch-content">

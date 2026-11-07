@@ -8,7 +8,13 @@ import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import logo from "@/app/assets/Glassy Twin Triangles on White.png";
 import { CheckIcon, PermissionIcon } from "./SetupIcons";
-import { DESIGNS, DOT_STEPS, dotIndexForStep, type Step } from "./setup.types";
+import {
+  DESIGNS,
+  DOT_STEPS,
+  FONTS,
+  dotIndexForStep,
+  type Step,
+} from "./setup.types";
 import type { SetupState } from "./useSetup";
 import {
   AudioLines,
@@ -626,6 +632,57 @@ export function DesignStep({
               <span className="model-info">
                 <span className="model-name">{d.label}</span>
                 <span className="model-desc">{d.desc}</span>
+              </span>
+
+              <span className="model-radio" />
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <StepActions onBack={onBack} onNext={onNext} nextLabel="Continue →" />
+    </>
+  );
+}
+
+export function FontStep({
+  font,
+  onBack,
+  onNext,
+}: {
+  font: SetupState["font"];
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <>
+      <h1 className="setup-title">Choose a font</h1>
+
+      <p className="setup-subtitle">
+        Pick the font for the text shown in the Voca notch.
+      </p>
+
+      <div className="design-list">
+        {FONTS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            className={
+              "model-option design-option" +
+              (font.selected === f.id ? " model-option-selected" : "")
+            }
+            onClick={() => font.choose(f.id)}
+          >
+            <span className="design-preview font-preview" aria-hidden>
+              <span style={{ fontFamily: f.cssVar + ", sans-serif" }}>
+                Language
+              </span>
+            </span>
+
+            <span className="design-meta">
+              <span className="model-info">
+                <span className="model-name">{f.label}</span>
+                <span className="model-desc">{f.desc}</span>
               </span>
 
               <span className="model-radio" />

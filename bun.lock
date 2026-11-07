@@ -5,7 +5,7 @@
     "": {
       "name": "voca",
       "dependencies": {
-        "geist": "^1.8.2",
+        "geist": "^1.9.2",
         "lucide": "^1.66.0",
         "lucide-react": "^1.66.0",
         "next": "16.3.5",
@@ -732,7 +732,7 @@
 
     "functions-have-names": ["functions-have-names@1.2.3", "https://registry.npmmirror.com/functions-have-names/-/functions-have-names-1.2.3.tgz", {}, "sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ=="],
 
-    "geist": ["geist@1.8.2", "", { "peerDependencies": { "next": ">=13.2.0" } }, "sha512-fRF4sbJ9qcCxPb35cVtKBAwYlTt1IbU9nkbPi0a+xyZqPIjCJ2BY8ekGhx6/SGSZKrR7/UuL57r/eeDQ1Xy11g=="],
+    "geist": ["geist@1.9.2", "", { "peerDependencies": { "next": ">=13.2.0" } }, "sha512-UU1x2q5Khob0+i4csFvXk1Ki4DePdu7xISuXyEcj1tzQMg64oN7Kbuy4e5z5QhcUWbbvOMJNs3ZxYQqpsEMV3w=="],
 
     "generator-function": ["generator-function@2.0.1", "https://registry.npmmirror.com/generator-function/-/generator-function-2.0.1.tgz", {}, "sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g=="],
 

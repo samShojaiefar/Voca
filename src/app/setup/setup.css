@@ -1143,3 +1143,16 @@ select {
   text-align: center;
   opacity: 0.6;
 }
+
+/* =========================================
+   FONT STEP (pick the notch font)
+   Reuses .design-list / .design-option / .design-meta.
+   ========================================= */
+
+.font-preview {
+  align-items: center;
+  background: #000;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}

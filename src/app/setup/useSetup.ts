@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import {
   DEFAULT_DESIGN,
+  DEFAULT_FONT,
   DEFAULT_MODEL,
   DESIGN_STORAGE_KEY,
+  FONT_STORAGE_KEY,
   isDesignId,
+  isFontId,
   type CapturedKey,
   type DesignId,
+  type FontId,
   type LanguageOption,
   type ModelOption,
   type PermissionItem,
@@ -42,6 +46,7 @@ export function useSetup() {
   const [secondaryLang, setSecondaryLang] = useState<string>("none");
 
   const [design, setDesign] = useState<DesignId>(DEFAULT_DESIGN);
+  const [font, setFont] = useState<FontId>(DEFAULT_FONT);
 
   const [testText, setTestText] = useState("");
   const testInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -58,6 +63,16 @@ export function useSetup() {
         }
       } catch {
         // storage unavailable — keep the default design
+      }
+
+      try {
+        const savedFont = localStorage.getItem(FONT_STORAGE_KEY);
+
+        if (isFontId(savedFont)) {
+          setFont(savedFont);
+        }
+      } catch {
+        // storage unavailable — keep the default font
       }
 
       try {
@@ -285,6 +300,17 @@ export function useSetup() {
     }
   }
 
+  // Same pattern as the design: stored under a key the notch window reads.
+  function chooseFont(id: FontId) {
+    setFont(id);
+
+    try {
+      localStorage.setItem(FONT_STORAGE_KEY, id);
+    } catch (error) {
+      console.error("Failed to save font:", error);
+    }
+  }
+
   async function handleFinishSetup() {
     if (saving) return;
 
@@ -396,6 +422,11 @@ export function useSetup() {
     design: {
       selected: design,
       choose: chooseDesign,
+    },
+
+    font: {
+      selected: font,
+      choose: chooseFont,
     },
 
     test: {

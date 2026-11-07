@@ -5,6 +5,7 @@ import {
   CurrentKeyStep,
   DesignStep,
   DoneStep,
+  FontStep,
   LanguageStep,
   LoadingCard,
   ModelStep,
@@ -82,6 +83,14 @@ export default function SetupPage() {
           <DesignStep
             design={s.design}
             onBack={() => s.setStep("language")}
+            onNext={() => s.setStep("font")}
+          />
+        )}
+
+        {s.step === "font" && (
+          <FontStep
+            font={s.font}
+            onBack={() => s.setStep("design")}
             onNext={() => s.setStep("test")}
           />
         )}
@@ -94,7 +103,7 @@ export default function SetupPage() {
             }
             test={s.test}
             saving={s.saving}
-            onBack={() => s.setStep("design")}
+            onBack={() => s.setStep("font")}
             onFinish={s.actions.finishSetup}
           />
         )}

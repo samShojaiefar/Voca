@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { GeistPixelSquare } from "geist/font/pixel";
+import { GeistPixelSquare } from "geist/font/pixel/square";
+import { GeistSerifSquare } from "geist/font/serif/square";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${GeistPixelSquare.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${GeistPixelSquare.variable} ${GeistSerifSquare.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className={`${GeistSans.className} min-h-full flex flex-col`}>
         {" "}
