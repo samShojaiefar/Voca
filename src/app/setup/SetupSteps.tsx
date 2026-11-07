@@ -675,7 +675,7 @@ export function FontStep({
           >
             <span className="design-preview font-preview" aria-hidden>
               <span style={{ fontFamily: f.cssVar + ", sans-serif" }}>
-                Language
+                Voca
               </span>
             </span>
 

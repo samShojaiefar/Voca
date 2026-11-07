@@ -10,7 +10,7 @@
   padding: 36px 28px;
   background: #fdfdfd;
   color: #171717;
-  font-family: var(--font-pixel), sans-serif;
+  font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif;
   animation: dashboard-enter 0.35s ease both;
 }
 
@@ -730,7 +730,7 @@ kbd,
 .lang-select-option-selected,
 .language-label,
 .lang-select-option {
-  font-family: var(--font-geist-pixel-square), sans-serif !important;
+  font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif !important;
 }
 /* Design picker card on the home page. Class names are prefixed "dsg-"
    so they can't clash with page.css or setup.css. */
@@ -914,7 +914,7 @@ kbd,
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
   color: #171717;
-  font-family: var(--font-pixel), sans-serif;
+  font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif;
   animation: modal-pop-in 0.2s ease both;
 }
 

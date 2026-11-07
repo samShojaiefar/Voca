@@ -49,6 +49,15 @@ type DesignId = "notch" | "island";
 const DESIGN_STORAGE_KEY = "voca-theme";
 const DEFAULT_DESIGN: DesignId = "notch";
 
+// Notch font picked on the setup page. Must match setup.types.ts
+// (FONTS / FONT_STORAGE_KEY). The chosen font is written to --notch-font on
+// <html>, which page.css and globals.css read.
+const FONT_STORAGE_KEY = "voca-font";
+const FONT_CSS_VARS: Record<string, string> = {
+  pixel: "var(--font-geist-pixel-square)",
+  serif: "var(--font-geist-serif-square)",
+};
+
 const DESIGNS: { id: DesignId; label: string; desc: string }[] = [
   { id: "notch", label: "Notch", desc: "Attached to the top edge" },
   { id: "island", label: "Island", desc: "A floating pill, like Dynamic Island" },
@@ -276,6 +285,31 @@ export default function HomePage() {
       if (event.key === DESIGN_STORAGE_KEY && isDesignId(event.newValue)) {
         setDesign(event.newValue);
       }
+    };
+
+    window.addEventListener("storage", onStorage);
+
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Font: read the saved choice, apply it to the whole page (the clear-history
+  // modal included), and follow changes from the setup window.
+  useEffect(() => {
+    const apply = (id: string | null) => {
+      document.documentElement.style.setProperty(
+        "--notch-font",
+        (id && FONT_CSS_VARS[id]) || FONT_CSS_VARS.pixel,
+      );
+    };
+
+    try {
+      apply(localStorage.getItem(FONT_STORAGE_KEY));
+    } catch {
+      apply(null);
+    }
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === FONT_STORAGE_KEY) apply(event.newValue);
     };
 
     window.addEventListener("storage", onStorage);

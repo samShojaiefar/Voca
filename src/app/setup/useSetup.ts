@@ -6,6 +6,7 @@ import {
   DEFAULT_FONT,
   DEFAULT_MODEL,
   DESIGN_STORAGE_KEY,
+  FONTS,
   FONT_STORAGE_KEY,
   isDesignId,
   isFontId,
@@ -70,6 +71,10 @@ export function useSetup() {
 
         if (isFontId(savedFont)) {
           setFont(savedFont);
+          document.documentElement.style.setProperty(
+            "--notch-font",
+            FONTS.find((f) => f.id === savedFont)!.cssVar,
+          );
         }
       } catch {
         // storage unavailable — keep the default font
@@ -300,9 +305,19 @@ export function useSetup() {
     }
   }
 
+  // The setup page itself uses the chosen font too, via --notch-font on <html>.
+  function applyFontToPage(id: FontId) {
+    const option = FONTS.find((f) => f.id === id);
+
+    if (option) {
+      document.documentElement.style.setProperty("--notch-font", option.cssVar);
+    }
+  }
+
   // Same pattern as the design: stored under a key the notch window reads.
   function chooseFont(id: FontId) {
     setFont(id);
+    applyFontToPage(id);
 
     try {
       localStorage.setItem(FONT_STORAGE_KEY, id);
