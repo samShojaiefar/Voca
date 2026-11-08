@@ -5,19 +5,11 @@ export type DetectedKey = {
   id: number;
   label: string;
 };
+
 export type CapturedKey = {
   id: number;
   label: string;
 };
-
-export type ModelOption = {
-  id: string;
-  label: string;
-  desc: string;
-  installed: boolean;
-};
-
-
 
 export type LanguageOption = {
   id: string;
@@ -45,7 +37,8 @@ export type PermissionItem = {
   onAction: () => void;
 };
 
-export const DEFAULT_MODEL = "ggml-tiny-q5_1.bin";
+// The model every install uses. There is no model choice in setup.
+export const DEFAULT_MODEL = "ggml-base-q5_1.bin";
 
 // The two notch designs people can pick from. The ids must match the theme
 // ids in the notch page (THEMES) and the [data-theme] blocks in globals.css.
@@ -98,7 +91,6 @@ export type Step =
   | "permissions"
   | "current-key"
   | "change-key"
-  | "model"
   | "language"
   | "design"
   | "font"
@@ -111,7 +103,6 @@ export const DOT_STEPS: Step[] = [
   "welcome",
   "permissions",
   "current-key",
-  "model",
   "language",
   "design",
   "font",

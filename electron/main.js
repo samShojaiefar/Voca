@@ -784,27 +784,15 @@ function getKeyLabel(keycode) {
 // ---------------------------------------------------------------------------
 // Windows
 // ---------------------------------------------------------------------------
-
 function createNotchWindow() {
   const display = screen.getPrimaryDisplay();
-  const { width } = display.workAreaSize;
-
-  const windowWidth = 320;
-  // Just enough to comfortably fit the expanded bar (40px) plus a little
-  // breathing room — text now renders inside the bar itself, not a
-  // separate panel below it, so we don't need the extra height anymore.
-  const windowHeight = 1000;
+  const { x, y, width, height } = display.bounds;
 
   notchWin = new BrowserWindow({
-    width: windowWidth,
-    height: windowHeight,
-
-    x: Math.round(
-      (width - windowWidth) / 2
-    ),
-
-    y: 0,
-
+    x,
+    y,
+    width,
+    height,
     frame: false,
     transparent: true,
     resizable: false,
@@ -814,24 +802,16 @@ function createNotchWindow() {
     focusable: false,
 
     webPreferences: {
-      preload: path.join(
-        __dirname,
-        "preload.js"
-      ),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  notchWin.setAlwaysOnTop(
-    true,
-    "floating"
-  );
+  notchWin.setAlwaysOnTop(true, "floating");
 
-  // The notch has no buttons or interactive elements — it's a pure
-  // overlay — so make it click-through everywhere. This also means the
-  // extra transparent space added for the transcript panel never blocks
-  // clicks on whatever app is underneath it.
+  // Still click-through, so the full-screen transparent window
+  // never blocks input to the apps underneath it.
   notchWin.setIgnoreMouseEvents(true);
 
   notchWin.loadURL(`${vocaBaseUrl}/`);
@@ -840,7 +820,6 @@ function createNotchWindow() {
     notchWin = null;
   });
 }
-
 function createSetupWindow() {
 setupWin = new BrowserWindow({
   width: 1050,

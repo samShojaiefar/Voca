@@ -49,18 +49,31 @@ type DesignId = "notch" | "island";
 const DESIGN_STORAGE_KEY = "voca-theme";
 const DEFAULT_DESIGN: DesignId = "notch";
 
-// Notch font picked on the setup page. Must match setup.types.ts
-// (FONTS / FONT_STORAGE_KEY). The chosen font is written to --notch-font on
-// <html>, which page.css and globals.css read.
+// ========================================
+// NOTCH FONTS
+// Must match setup.types.ts (FONTS / FONT_STORAGE_KEY).
+// The chosen font is written to --notch-font on <html>, which
+// page.css and globals.css read.
+// ========================================
+
 const FONT_STORAGE_KEY = "voca-font";
 const FONT_CSS_VARS: Record<string, string> = {
   pixel: "var(--font-geist-pixel-square)",
   serif: "var(--font-geist-serif-square)",
 };
 
+const FONTS: { id: string; label: string; desc: string }[] = [
+  { id: "pixel", label: "Pixel", desc: "Geist Pixel Square" },
+  { id: "serif", label: "Serif", desc: "Geist Serif Square" },
+];
+
 const DESIGNS: { id: DesignId; label: string; desc: string }[] = [
   { id: "notch", label: "Notch", desc: "Attached to the top edge" },
-  { id: "island", label: "Island", desc: "A floating pill, like Dynamic Island" },
+  {
+    id: "island",
+    label: "Island",
+    desc: "A floating pill, like Dynamic Island",
+  },
 ];
 
 const isDesignId = (value: unknown): value is DesignId =>
@@ -208,6 +221,10 @@ export default function HomePage() {
 
   const [design, setDesign] = useState<DesignId>(DEFAULT_DESIGN);
 
+  // ---- notch font ----
+
+  const [font, setFont] = useState<string>("pixel");
+
   // ========================================
   // LOAD DATA
   // ========================================
@@ -292,30 +309,34 @@ export default function HomePage() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Font: read the saved choice, apply it to the whole page (the clear-history
-  // modal included), and follow changes from the setup window.
+  // Font: read the saved choice and follow changes from the setup window.
   useEffect(() => {
-    const apply = (id: string | null) => {
-      document.documentElement.style.setProperty(
-        "--notch-font",
-        (id && FONT_CSS_VARS[id]) || FONT_CSS_VARS.pixel,
-      );
+    const read = (id: string | null) => {
+      setFont(id && id in FONT_CSS_VARS ? id : "pixel");
     };
 
     try {
-      apply(localStorage.getItem(FONT_STORAGE_KEY));
+      read(localStorage.getItem(FONT_STORAGE_KEY));
     } catch {
-      apply(null);
+      read(null);
     }
 
     const onStorage = (event: StorageEvent) => {
-      if (event.key === FONT_STORAGE_KEY) apply(event.newValue);
+      if (event.key === FONT_STORAGE_KEY) read(event.newValue);
     };
 
     window.addEventListener("storage", onStorage);
 
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Apply the chosen font to the whole page, including the clear-history modal.
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--notch-font",
+      FONT_CSS_VARS[font] ?? FONT_CSS_VARS.pixel,
+    );
+  }, [font]);
 
   // ========================================
   // DESIGN FUNCTIONS
@@ -330,6 +351,22 @@ export default function HomePage() {
       localStorage.setItem(DESIGN_STORAGE_KEY, id);
     } catch (error) {
       console.error("Failed to save design:", error);
+    }
+  };
+
+  // ========================================
+  // FONT FUNCTIONS
+  // ========================================
+
+  // Setting state updates this window. The "storage" event only fires in
+  // other windows, so it can't do that here.
+  const chooseFont = (id: string) => {
+    setFont(id);
+
+    try {
+      localStorage.setItem(FONT_STORAGE_KEY, id);
+    } catch (error) {
+      console.error("Failed to save font:", error);
     }
   };
 
@@ -415,226 +452,280 @@ export default function HomePage() {
 
   return (
     <>
-    <main className="dashboard">
-      {/* =========================================
+      <main className="dashboard">
+        {/* =========================================
           RECENT DICTATIONS
       ========================================= */}
 
-      <section className="dashboard-card">
-        <div className="dashboard-header">
-          <h2>Recent dictations</h2>
+        <section className="dashboard-card">
+          <div className="dashboard-header">
+            <h2>Recent dictations</h2>
 
-          <button
-            className="dashboard-btn"
-            disabled={history.length === 0}
-            onClick={() => setConfirmClearOpen(true)}
-          >
-            Clear
-          </button>
-        </div>
-
-        {history.length === 0 && (
-          <div className="history-empty">
-            Nothing yet. Hold your trigger key and speak.
+            <button
+              className="dashboard-btn"
+              disabled={history.length === 0}
+              onClick={() => setConfirmClearOpen(true)}
+            >
+              Clear
+            </button>
           </div>
-        )}
 
-        <div className="history-list">
-          {history.map((item) => (
-            <div className="history-item" key={item.id}>
-              <span className="history-time">{fmt(item.at)}</span>
-
-              <span className="history-text">{item.text}</span>
-
-              <button
-                className={`copy-btn ${copiedId === item.id ? "copied" : ""}`}
-                onClick={() => copy(item)}
-                aria-label="Copy dictation"
-                title="Copy"
-              >
-                {copiedId === item.id ? (
-                  <CopyCheck size={18} />
-                ) : (
-                  <Copy size={18} />
-                )}
-              </button>
+          {history.length === 0 && (
+            <div className="history-empty">
+              Nothing yet. Hold your trigger key and speak.
             </div>
-          ))}
-        </div>
+          )}
 
-        <div className="history-settings">
-          <label className="history-save-label">
-            <input
-              type="checkbox"
-              checked={saveToFile}
-              onChange={async (event) => {
-                const enabled = event.target.checked;
+          <div className="history-list">
+            {history.map((item) => (
+              <div className="history-item" key={item.id}>
+                <span className="history-time">{fmt(item.at)}</span>
 
-                setSaveToFile(enabled);
-                await voca().setSaveHistory(enabled);
-              }}
-            />
-            Also save dictations to a .md file
-          </label>
+                <span className="history-text">{item.text}</span>
 
-          <button
-            className="dashboard-btn"
-            onClick={() => voca().openHistoryFolder()}
-          >
-            Open folder
-          </button>
-        </div>
+                <button
+                  className={`copy-btn ${copiedId === item.id ? "copied" : ""}`}
+                  onClick={() => copy(item)}
+                  aria-label="Copy dictation"
+                  title="Copy"
+                >
+                  {copiedId === item.id ? (
+                    <CopyCheck size={18} />
+                  ) : (
+                    <Copy size={18} />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
 
-        <p className="history-note">
-          Saved as one file per day in Documents/Voca. Off by default. Your most
-          recent dictations are loaded from these files when the app starts.
-          Clearing the list also erases the contents of these files.
-        </p>
-      </section>
+          <div className="history-settings">
+            <label className="history-save-label">
+              <input
+                type="checkbox"
+                checked={saveToFile}
+                onChange={async (event) => {
+                  const enabled = event.target.checked;
 
-      {/* =========================================
+                  setSaveToFile(enabled);
+                  await voca().setSaveHistory(enabled);
+                }}
+              />
+              Also save dictations to a .md file
+            </label>
+
+            <button
+              className="dashboard-btn"
+              onClick={() => voca().openHistoryFolder()}
+            >
+              Open folder
+            </button>
+          </div>
+
+          <p className="history-note">
+            Saved as one file per day in Documents/Voca. Off by default. Your
+            most recent dictations are loaded from these files when the app
+            starts. Clearing the list also erases the contents of these files.
+          </p>
+        </section>
+
+        {/* =========================================
           LANGUAGE SETTINGS
       ========================================= */}
 
-      <section className="dashboard-card">
-        <div className="dashboard-header">
-          <h2>Languages</h2>
-        </div>
+        <section className="dashboard-card">
+          <div className="dashboard-header">
+            <h2>Languages</h2>
+          </div>
 
-        <p className="language-description">
-          Choose the languages you use with Voca. Press{" "}
-          <kbd className="keyboard-key">Ctrl</kbd>
-          {" + "}
-          <kbd className="keyboard-key">Shift</kbd>
-          {" + "}
-          <kbd className="keyboard-key">L</kbd> to switch between your primary
-          and secondary languages.
-        </p>
+          <p className="language-description">
+            Choose the languages you use with Voca. Press{" "}
+            <kbd className="keyboard-key">Ctrl</kbd>
+            {" + "}
+            <kbd className="keyboard-key">Shift</kbd>
+            {" + "}
+            <kbd className="keyboard-key">L</kbd> to switch between your primary
+            and secondary languages.
+          </p>
 
-        <div className="language-field">
-          <label className="language-label">Primary language</label>
+          <div className="language-field">
+            <label className="language-label">Primary language</label>
 
-          <LanguageSelect
-            label="Primary language"
-            value={primaryLanguage}
-            options={languageOptions}
-            onChange={choosePrimary}
-          />
-        </div>
+            <LanguageSelect
+              label="Primary language"
+              value={primaryLanguage}
+              options={languageOptions}
+              onChange={choosePrimary}
+            />
+          </div>
 
-        <div className="language-field">
-          <label className="language-label">
-            Secondary language
-            <span className="optional-label">Optional</span>
-          </label>
+          <div className="language-field">
+            <label className="language-label">
+              Secondary language
+              <span className="optional-label">Optional</span>
+            </label>
 
-          <LanguageSelect
-            label="Secondary language"
-            value={secondaryLanguage}
-            options={secondaryOptions}
-            onChange={chooseSecondary}
-            disabled={primaryIsAuto}
-          />
+            <LanguageSelect
+              label="Secondary language"
+              value={secondaryLanguage}
+              options={secondaryOptions}
+              onChange={chooseSecondary}
+              disabled={primaryIsAuto}
+            />
 
-          {primaryIsAuto && (
-            <p className="language-hint">
-              Choose a specific primary language to enable a secondary language.
-            </p>
-          )}
-        </div>
+            {primaryIsAuto && (
+              <p className="language-hint">
+                Choose a specific primary language to enable a secondary
+                language.
+              </p>
+            )}
+          </div>
 
-        <div className="language-footer">
-          <span className="language-status" role="status">
-            {languageSaved ? "Preferences saved" : ""}
-          </span>
+          <div className="language-footer">
+            <span className="language-status" role="status">
+              {languageSaved ? "Preferences saved" : ""}
+            </span>
 
-          <button
-            className="dashboard-btn primary"
-            disabled={savingLanguages}
-            onClick={saveLanguages}
-          >
-            {savingLanguages ? "Saving..." : "Save languages"}
-          </button>
-        </div>
-      </section>
+            <button
+              className="dashboard-btn primary"
+              disabled={savingLanguages}
+              onClick={saveLanguages}
+            >
+              {savingLanguages ? "Saving..." : "Save languages"}
+            </button>
+          </div>
+        </section>
 
-      {/* =========================================
+        {/* =========================================
           DESIGN
       ========================================= */}
 
-      <section className="dashboard-card">
-        <div className="dashboard-header">
-          <h2>Design</h2>
-        </div>
+        <section className="dashboard-card">
+          <div className="dashboard-header">
+            <h2>Design</h2>
+          </div>
 
-        <p className="dsg-description">
-          Pick how the Voca notch looks while you dictate. Changes apply
-          instantly.
-        </p>
+          <p className="dsg-description">
+            Pick how the Voca notch looks while you dictate. Changes apply
+            instantly.
+          </p>
 
-        <div className="dsg-list" role="radiogroup" aria-label="Notch design">
-          {DESIGNS.map((d) => (
-            <button
-              key={d.id}
-              type="button"
-              role="radio"
-              aria-checked={design === d.id}
-              className={
-                "dsg-option" + (design === d.id ? " dsg-option-selected" : "")
-              }
-              onClick={() => chooseDesign(d.id)}
-            >
-              <span className="dsg-preview" aria-hidden>
-                <span className={"dsg-pill dsg-pill-" + d.id}>
-                  <span className="dsg-bars">
-                    <i />
-                    <i />
-                    <i />
-                    <i />
-                    <i />
+          <div className="dsg-list" role="radiogroup" aria-label="Notch design">
+            {DESIGNS.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                role="radio"
+                aria-checked={design === d.id}
+                className={
+                  "dsg-option" + (design === d.id ? " dsg-option-selected" : "")
+                }
+                onClick={() => chooseDesign(d.id)}
+              >
+                <span className="dsg-preview" aria-hidden>
+                  <span className={"dsg-pill dsg-pill-" + d.id}>
+                    <span className="dsg-bars">
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </span>
                   </span>
                 </span>
-              </span>
 
-              <span className="dsg-meta">
-                <span className="dsg-info">
-                  <span className="dsg-name">{d.label}</span>
-                  <span className="dsg-desc">{d.desc}</span>
+                <span className="dsg-meta">
+                  <span className="dsg-info">
+                    <span className="dsg-name">{d.label}</span>
+                    <span className="dsg-desc">{d.desc}</span>
+                  </span>
+
+                  <span className="dsg-radio" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* =========================================
+          FONT
+      ========================================= */}
+
+        <section className="dashboard-card">
+          <div className="dashboard-header">
+            <h2>Font</h2>
+          </div>
+
+          <p className="dsg-description">
+            Pick the font for the text shown in the Voca notch. Changes apply
+            instantly.
+          </p>
+
+          <div className="dsg-list" role="radiogroup" aria-label="Notch font">
+            {FONTS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="radio"
+                aria-checked={font === f.id}
+                className={
+                  "dsg-option" + (font === f.id ? " dsg-option-selected" : "")
+                }
+                onClick={() => chooseFont(f.id)}
+              >
+                <span
+                  className="dsg-preview font-preview "
+                  aria-hidden
+                >
+                  <span
+                    style={{
+                      fontFamily: FONT_CSS_VARS[f.id] + ", sans-serif",
+                      fontSize: 20,
+                    }}
+                  >
+                    Voca
+                  </span>
                 </span>
 
-                <span className="dsg-radio" />
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
+                <span className="dsg-meta">
+                  <span className="dsg-info">
+                    <span className="dsg-name">{f.label}</span>
+                    <span className="dsg-desc">{f.desc}</span>
+                  </span>
 
-      {/* =========================================
+                  <span className="dsg-radio" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* =========================================
           SETUP
       ========================================= */}
 
-      <section className="dashboard-card">
-        <div className="dashboard-actions">
-          <button
-            className="dashboard-btn"
-            onClick={() => voca().openSetupWindow()}
-          >
-            Re-run setup
-          </button>
+        <section className="dashboard-card">
+          <div className="dashboard-actions">
+            <button
+              className="dashboard-btn"
+              onClick={() => voca().openSetupWindow()}
+            >
+              Re-run setup
+            </button>
 
-          <button
-            className="dashboard-btn"
-            onClick={async () => {
-              await voca().resetSetup();
+            <button
+              className="dashboard-btn"
+              onClick={async () => {
+                await voca().resetSetup();
 
-              alert("Setup reset. Setup will open next time you start Voca.");
-            }}
-          >
-            Reset setup (testing)
-          </button>
-        </div>
-      </section>
-    </main>
+                alert("Setup reset. Setup will open next time you start Voca.");
+              }}
+            >
+              Reset setup (testing)
+            </button>
+          </div>
+        </section>
+      </main>
 
       {confirmClearOpen && (
         <div
@@ -658,9 +749,9 @@ export default function HomePage() {
             </h3>
 
             <p id="clear-modal-text" className="modal-text">
-              This removes everything in the list and erases the contents of
-              the saved .md files in Documents/Voca. The files themselves stay.
-              This can&apos;t be undone.
+              This removes everything in the list and erases the contents of the
+              saved .md files in Documents/Voca. The files themselves stay. This
+              can&apos;t be undone.
             </p>
 
             <div className="modal-actions">

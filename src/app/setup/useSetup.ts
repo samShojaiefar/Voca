@@ -14,7 +14,6 @@ import {
   type DesignId,
   type FontId,
   type LanguageOption,
-  type ModelOption,
   type PermissionItem,
   type PermissionStatus,
   type Step,
@@ -39,9 +38,6 @@ export function useSetup() {
   const [justGranted, setJustGranted] = useState(false);
   const prevPermissionsRef = useRef<any>(null);
 
-  const [models, setModels] = useState<ModelOption[]>([]);
-  const [model, setModel] = useState<string>(DEFAULT_MODEL);
-
   const [languageOptions, setLanguageOptions] = useState<LanguageOption[]>([]);
   const [primaryLang, setPrimaryLang] = useState<string>("auto");
   const [secondaryLang, setSecondaryLang] = useState<string>("none");
@@ -52,7 +48,7 @@ export function useSetup() {
   const [testText, setTestText] = useState("");
   const testInputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // ---- Load existing config and model install status ----------------------
+  // ---- Load existing config -----------------------------------------------
 
   useEffect(() => {
     async function loadConfig() {
@@ -99,31 +95,6 @@ export function useSetup() {
 
         if (langOptions) {
           setLanguageOptions(langOptions);
-        }
-
-        const options = await window.voca?.getModelOptions?.();
-
-        if (options) {
-          const mapped: ModelOption[] = options.map((option: any) => ({
-            id: option.id,
-            label: option.label,
-            desc: option.installed ? "Ready to use" : "Not installed",
-            installed: Boolean(option.installed),
-          }));
-
-          setModels(mapped);
-
-          // Pick the saved model if it's installed, otherwise the first installed one
-          const savedId = config?.model ?? DEFAULT_MODEL;
-
-          if (mapped.some((m) => m.id === savedId && m.installed)) {
-            setModel(savedId);
-          } else {
-            const firstInstalled = mapped.find((m) => m.installed);
-            if (firstInstalled) {
-              setModel(firstInstalled.id);
-            }
-          }
         }
       } catch (error) {
         console.error("Failed to load Voca config:", error);
@@ -236,7 +207,7 @@ export function useSetup() {
       await window.voca?.setTriggerKey?.(selectedKey.id.toString());
 
       setCurrentKey(selectedKey.label.toUpperCase());
-      setStep("model");
+      setStep("language");
     } catch (error) {
       console.error("Failed to save trigger key:", error);
     } finally {
@@ -245,26 +216,7 @@ export function useSetup() {
   }
 
   function handleContinueWithCurrentKey() {
-    setStep("model");
-  }
-
-  async function handleContinueFromModel() {
-    if (saving) return;
-
-    const selected = models.find((m) => m.id === model);
-    if (!selected?.installed) return;
-
-    setSaving(true);
-
-    try {
-      await window.voca?.setModel?.(model);
-
-      setStep("language");
-    } catch (error) {
-      console.error("Failed to save model:", error);
-    } finally {
-      setSaving(false);
-    }
+    setStep("language");
   }
 
   // One primary language (or Auto) and an optional secondary language.
@@ -332,7 +284,7 @@ export function useSetup() {
     setSaving(true);
 
     try {
-      await window.voca?.finishSetup?.(currentKey.toLowerCase(), model);
+      await window.voca?.finishSetup?.(currentKey.toLowerCase(), DEFAULT_MODEL);
 
       setStep("done");
     } catch (error) {
@@ -392,13 +344,6 @@ export function useSetup() {
     permissionsLoaded &&
     (!permissionsRequired || grantedCount === permissionItems.length);
 
-  const selectedModelInstalled = models.some(
-    (m) => m.id === model && m.installed,
-  );
-
-  const noModelsInstalled =
-    models.length > 0 && models.every((m) => !m.installed);
-
   return {
     step,
     setStep,
@@ -416,14 +361,6 @@ export function useSetup() {
       inputMonitoringGranted,
       justGranted,
       canContinue: canContinuePastPermissions,
-    },
-
-    models: {
-      list: models,
-      selectedId: model,
-      select: setModel,
-      selectedInstalled: selectedModelInstalled,
-      noneInstalled: noModelsInstalled,
     },
 
     languages: {
@@ -453,7 +390,6 @@ export function useSetup() {
     actions: {
       saveKey: handleSaveKey,
       continueWithCurrentKey: handleContinueWithCurrentKey,
-      continueFromModel: handleContinueFromModel,
       continueFromLanguage: handleContinueFromLanguage,
       finishSetup: handleFinishSetup,
       closeSetup: handleCloseSetup,

@@ -1004,3 +1004,11 @@ kbd,
     animation: none;
   }
 }
+
+.font-preview {
+  align-items: center;
+  background: #000;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}

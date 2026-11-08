@@ -8,7 +8,6 @@ import {
   FontStep,
   LanguageStep,
   LoadingCard,
-  ModelStep,
   PermissionsStep,
   StepDots,
   TestStep,
@@ -61,20 +60,11 @@ export default function SetupPage() {
           />
         )}
 
-        {s.step === "model" && (
-          <ModelStep
-            models={s.models}
-            saving={s.saving}
-            onBack={() => s.setStep("current-key")}
-            onNext={s.actions.continueFromModel}
-          />
-        )}
-
         {s.step === "language" && (
           <LanguageStep
             languages={s.languages}
             saving={s.saving}
-            onBack={() => s.setStep("model")}
+            onBack={() => s.setStep("current-key")}
             onNext={s.actions.continueFromLanguage}
           />
         )}
