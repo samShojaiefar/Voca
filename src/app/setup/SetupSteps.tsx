@@ -468,67 +468,6 @@ export function ChangeKeyStep({
     </>
   );
 }
-
-export function ModelStep({
-  models,
-  saving,
-  onBack,
-  onNext,
-}: {
-  models: SetupState["models"];
-  saving: boolean;
-  onBack: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <>
-      <h1 className="setup-title">Choose a model</h1>
-
-      <p className="setup-subtitle">
-        Smaller models are faster, larger ones are more accurate.
-      </p>
-
-      <div className="model-list">
-        {models.list.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            disabled={!m.installed}
-            className={
-              "model-option" +
-              (models.selectedId === m.id ? " model-option-selected" : "") +
-              (!m.installed ? " model-option-missing" : "")
-            }
-            onClick={() => models.select(m.id)}
-          >
-            <span className="model-info">
-              <span className="model-name">{m.label}</span>
-              <span className="model-desc">{m.desc}</span>
-            </span>
-
-            <span className="model-radio" />
-          </button>
-        ))}
-      </div>
-
-      {models.noneInstalled && (
-        <p className="setup-hint">
-          No models found. Copy a ggml model file into{" "}
-          <code>resources/models</code> and restart Voca.
-        </p>
-      )}
-
-      <StepActions
-        onBack={onBack}
-        onNext={onNext}
-        nextLabel={saving ? "Saving…" : "Continue →"}
-        backDisabled={saving}
-        nextDisabled={saving || !models.selectedInstalled}
-      />
-    </>
-  );
-}
-
 export function LanguageStep({
   languages,
   saving,
