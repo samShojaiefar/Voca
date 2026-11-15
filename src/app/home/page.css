@@ -1012,3 +1012,21 @@ kbd,
   font-size: 18px;
   line-height: 1;
 }
+.accessability-btn{
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  padding: 0 !important;
+  background-color: transparent;
+}
+.topbar{
+  display: flex;
+  align-items: center;
+  text-align: center;
+  justify-content: space-between;
+}
+.title{
+  margin-left: 20px;
+}

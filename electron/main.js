@@ -101,7 +101,7 @@ const MODEL_OPTIONS = [
   },
 ];
 
-const DEFAULT_MODEL = "ggml-tiny-q5_1.bin";
+const DEFAULT_MODEL = "ggml-base-q5_1.bin";
 
 // ---------------------------------------------------------------------------
 // Languages: a primary language and an optional secondary one.
@@ -825,7 +825,6 @@ setupWin = new BrowserWindow({
   width: 1050,
   height: 700,
   resizable: true,
-  center: true,
   title: "Set up Voca",
 
   titleBarStyle: "hidden",
@@ -875,7 +874,6 @@ function createMainWindow() {
     height: 680,
     minWidth: 720,
     minHeight: 480,
-    center: true,
     title: "Voca",
 
     titleBarStyle: "hidden",

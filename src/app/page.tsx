@@ -196,7 +196,8 @@ const LANGUAGE_MESSAGE = /^Language:\s*(.+)$/i;
 const BLANK_AUDIO = "[BLANK_AUDIO]";
 
 // "search google for <query>" opens a Google search.
-const SEARCH_PREFIX = "search google for ";
+const GOOGLE_SEARCH_PREFIX = "search google for " ;
+const BING_SEARCH_PREFIX = "search bing for " ;
 
 type NotchState = "idle" | "listening" | "processing" | "result";
 
@@ -588,8 +589,8 @@ export default function Home() {
       const trimmed = text.trim();
 
       // Voice command: "search google for ..." opens a Google search.
-      if (trimmed.toLowerCase().startsWith(SEARCH_PREFIX)) {
-        const query = trimmed.slice(SEARCH_PREFIX.length).trim();
+      if (trimmed.toLowerCase().startsWith(GOOGLE_SEARCH_PREFIX)) {
+        const query = trimmed.slice(GOOGLE_SEARCH_PREFIX.length).trim();
 
         if (query) {
           window.open(
@@ -631,7 +632,66 @@ export default function Home() {
       }
     };
   }, []);
+  useEffect(() => {
+    const unsubscribe = window.voca?.onTranscriptionResult?.((text) => {
+      console.log("[Voca] Transcript:", text);
 
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+        processingTimeoutRef.current = null;
+      }
+
+      if (!text) {
+        setNotchState("idle");
+        return;
+      }
+
+      const trimmed = text.trim();
+
+      // Voice command: "search google for ..." opens a Google search.
+      if (trimmed.toLowerCase().startsWith(BING_SEARCH_PREFIX)) {
+        const query = trimmed.slice(BING_SEARCH_PREFIX.length).trim();
+
+        if (query) {
+          window.open(
+            `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+            "_blank",
+          );
+        }
+      }
+
+      const isLanguage = LANGUAGE_MESSAGE.test(trimmed);
+      const isBlank = trimmed === BLANK_AUDIO;
+
+      // Normal dictation is typed into the active app, so the notch just
+      // closes. Only status messages stay on screen for a moment.
+      if (!isLanguage && !isBlank) {
+        setNotchState("idle");
+        return;
+      }
+
+      setMessage(isBlank ? "Try another time" : trimmed);
+      setNotchState("result");
+
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+
+      hideTimerRef.current = setTimeout(() => {
+        setNotchState("idle");
+      }, 1800);
+    });
+
+    return () => {
+      unsubscribe?.();
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+      }
+    };
+  }, []);
   const config = THEMES[theme] ?? THEMES[ACTIVE_THEME];
   const live = notchState === "listening" || notchState === "processing";
 

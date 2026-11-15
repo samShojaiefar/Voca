@@ -6,7 +6,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import logo from "@/app/assets/Glassy Twin Triangles on White.png";
+import logo from "@/app/assets/logo2.svg";
 import { CheckIcon, PermissionIcon } from "./SetupIcons";
 import {
   DESIGNS,
@@ -194,7 +194,7 @@ function LanguageSelect<T extends string>({
       {open && (
         <div className="lang-select-menu">
           <div className="lang-select-search">
-            <Search size={14} />
+            <Search size={14} color="#000"/>
             <input
               autoFocus
               type="text"

@@ -9,7 +9,9 @@ import {
   Search,
   Check,
   AlertTriangle,
+  Settings,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // ========================================
 // TYPES
@@ -86,101 +88,6 @@ const isDesignId = (value: unknown): value is DesignId =>
 const voca = () => (window as any).voca;
 
 // ========================================
-// CUSTOM LANGUAGE SELECT
-// ========================================
-
-function LanguageSelect({
-  label,
-  value,
-  options,
-  onChange,
-  disabled = false,
-}: {
-  label: string;
-  value: string;
-  options: LanguageOption[];
-  onChange: (value: string) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const selected = options.find((option) => option.id === value);
-
-  const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  return (
-    <div className={`lang-select ${disabled ? "lang-select-disabled" : ""}`}>
-      <button
-        type="button"
-        className="lang-select-trigger"
-        aria-expanded={open}
-        aria-label={label}
-        disabled={disabled}
-        onClick={() => {
-          setOpen(!open);
-          setSearch("");
-        }}
-      >
-        <span>{selected?.label ?? "Select language"}</span>
-        <ChevronDown
-          size={16}
-          className={open ? "lang-select-chevron-open" : ""}
-        />
-      </button>
-
-      {open && !disabled && (
-        <div className="lang-select-menu">
-          <div className="lang-select-search">
-            <Search size={15} color="#9298a5" />
-
-            <input
-              className="searchinput"
-              autoFocus
-              placeholder="Search languages..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setOpen(false);
-                }
-              }}
-            />
-          </div>
-
-          <ul className="lang-select-list" role="listbox">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <li
-                  key={option.id}
-                  className={`lang-select-option ${
-                    value === option.id ? "lang-select-option-selected" : ""
-                  }`}
-                  role="option"
-                  aria-selected={value === option.id}
-                  onClick={() => {
-                    onChange(option.id);
-                    setOpen(false);
-                    setSearch("");
-                  }}
-                >
-                  <span>{option.label}</span>
-                  {value === option.id && <Check size={15} />}
-                </li>
-              ))
-            ) : (
-              <li className="lang-select-empty">No languages found</li>
-            )}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ========================================
 // HOME PAGE
 // ========================================
 
@@ -209,6 +116,7 @@ export default function HomePage() {
   const [languageSaved, setLanguageSaved] = useState(false);
 
   const primaryIsAuto = primaryLanguage === "auto";
+  const router = useRouter();
 
   const secondaryOptions = [
     { id: "none", label: "None" },
@@ -453,6 +361,16 @@ export default function HomePage() {
   return (
     <>
       <main className="dashboard">
+        <div className="topbar">
+          {" "}
+          <h1 className="title ">Home</h1>
+          <button
+            className="accessability-btn"
+            onClick={() => router.push("./accessability")}
+          >
+            <Settings color="#2d2d2d" />
+          </button>
+        </div>
         {/* =========================================
           RECENT DICTATIONS
       ========================================= */}
@@ -530,177 +448,6 @@ export default function HomePage() {
         </section>
 
         {/* =========================================
-          LANGUAGE SETTINGS
-      ========================================= */}
-
-        <section className="dashboard-card">
-          <div className="dashboard-header">
-            <h2>Languages</h2>
-          </div>
-
-          <p className="language-description">
-            Choose the languages you use with Voca. Press{" "}
-            <kbd className="keyboard-key">Ctrl</kbd>
-            {" + "}
-            <kbd className="keyboard-key">Shift</kbd>
-            {" + "}
-            <kbd className="keyboard-key">L</kbd> to switch between your primary
-            and secondary languages.
-          </p>
-
-          <div className="language-field">
-            <label className="language-label">Primary language</label>
-
-            <LanguageSelect
-              label="Primary language"
-              value={primaryLanguage}
-              options={languageOptions}
-              onChange={choosePrimary}
-            />
-          </div>
-
-          <div className="language-field">
-            <label className="language-label">
-              Secondary language
-              <span className="optional-label">Optional</span>
-            </label>
-
-            <LanguageSelect
-              label="Secondary language"
-              value={secondaryLanguage}
-              options={secondaryOptions}
-              onChange={chooseSecondary}
-              disabled={primaryIsAuto}
-            />
-
-            {primaryIsAuto && (
-              <p className="language-hint">
-                Choose a specific primary language to enable a secondary
-                language.
-              </p>
-            )}
-          </div>
-
-          <div className="language-footer">
-            <span className="language-status" role="status">
-              {languageSaved ? "Preferences saved" : ""}
-            </span>
-
-            <button
-              className="dashboard-btn primary"
-              disabled={savingLanguages}
-              onClick={saveLanguages}
-            >
-              {savingLanguages ? "Saving..." : "Save languages"}
-            </button>
-          </div>
-        </section>
-
-        {/* =========================================
-          DESIGN
-      ========================================= */}
-
-        <section className="dashboard-card">
-          <div className="dashboard-header">
-            <h2>Design</h2>
-          </div>
-
-          <p className="dsg-description">
-            Pick how the Voca notch looks while you dictate. Changes apply
-            instantly.
-          </p>
-
-          <div className="dsg-list" role="radiogroup" aria-label="Notch design">
-            {DESIGNS.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                role="radio"
-                aria-checked={design === d.id}
-                className={
-                  "dsg-option" + (design === d.id ? " dsg-option-selected" : "")
-                }
-                onClick={() => chooseDesign(d.id)}
-              >
-                <span className="dsg-preview" aria-hidden>
-                  <span className={"dsg-pill dsg-pill-" + d.id}>
-                    <span className="dsg-bars">
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                  </span>
-                </span>
-
-                <span className="dsg-meta">
-                  <span className="dsg-info">
-                    <span className="dsg-name">{d.label}</span>
-                    <span className="dsg-desc">{d.desc}</span>
-                  </span>
-
-                  <span className="dsg-radio" />
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* =========================================
-          FONT
-      ========================================= */}
-
-        <section className="dashboard-card">
-          <div className="dashboard-header">
-            <h2>Font</h2>
-          </div>
-
-          <p className="dsg-description">
-            Pick the font for the text shown in the Voca notch. Changes apply
-            instantly.
-          </p>
-
-          <div className="dsg-list" role="radiogroup" aria-label="Notch font">
-            {FONTS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="radio"
-                aria-checked={font === f.id}
-                className={
-                  "dsg-option" + (font === f.id ? " dsg-option-selected" : "")
-                }
-                onClick={() => chooseFont(f.id)}
-              >
-                <span
-                  className="dsg-preview font-preview "
-                  aria-hidden
-                >
-                  <span
-                    style={{
-                      fontFamily: FONT_CSS_VARS[f.id] + ", sans-serif",
-                      fontSize: 20,
-                    }}
-                  >
-                    Voca
-                  </span>
-                </span>
-
-                <span className="dsg-meta">
-                  <span className="dsg-info">
-                    <span className="dsg-name">{f.label}</span>
-                    <span className="dsg-desc">{f.desc}</span>
-                  </span>
-
-                  <span className="dsg-radio" />
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* =========================================
           SETUP
       ========================================= */}
 
@@ -762,7 +509,6 @@ export default function HomePage() {
               >
                 Cancel
               </button>
-
               <button
                 className="dashboard-btn danger"
                 onClick={async () => {
