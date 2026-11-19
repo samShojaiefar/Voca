@@ -45,8 +45,6 @@ contextBridge.exposeInMainWorld("voca", {
   // -------------------------------------------------------
   // Permissions (macOS) and setup window
   // -------------------------------------------------------
-openExternal: (url) => ipcRenderer.invoke("open-external", url),
-setMouseCapture: (enabled) => ipcRenderer.send("set-mouse-capture", enabled),
 
   getPermissionStatus: () => ipcRenderer.invoke("get-permission-status"),
 

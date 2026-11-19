@@ -202,9 +202,9 @@ const BING_SEARCH_PREFIX = "search bing for ";
 const WIKIPEDIA_SEARCH_PREFIX = "search wikipedia for ";
 
 // Wikipedia card timing and text length.
-const WIKI_HOLD_MS = 15000; // auto-close after this long
+const WIKI_HOLD_MS = 12000; // auto-close after this long
 const WIKI_RESUME_MS = 3000; // auto-close this long after the cursor leaves
-const WIKI_MAX_CHARS = 540;
+const WIKI_MAX_CHARS = 240;
 
 type NotchState = "idle" | "listening" | "processing" | "result" | "wiki";
 
@@ -458,11 +458,7 @@ export default function Home() {
         setTheme(e.newValue);
       }
 
-      if (
-        e.key === FONT_STORAGE_KEY &&
-        e.newValue &&
-        FONT_CSS_VARS[e.newValue]
-      ) {
+      if (e.key === FONT_STORAGE_KEY && e.newValue && FONT_CSS_VARS[e.newValue]) {
         setFontId(e.newValue);
       }
     }
@@ -648,19 +644,14 @@ export default function Home() {
     setNotchState("idle");
   }
 
-async function openWikiArticle(url: string) {
-  try {
+  function openWikiArticle(url: string) {
     if (window.voca?.openExternal) {
-      await window.voca.openExternal(url);
+      window.voca.openExternal(url);
     } else {
       window.open(url, "_blank");
     }
-  } catch (error) {
-    console.error("Failed to open Wiki article:", error);
-  } finally {
     closeWiki();
   }
-}
 
   useEffect(() => {
     window.voca?.onAltState((isDown) => {
@@ -731,17 +722,15 @@ async function openWikiArticle(url: string) {
       };
 
       if (lower.startsWith(GOOGLE_SEARCH_PREFIX)) {
-        openSearch(
-          GOOGLE_SEARCH_PREFIX,
-          (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+        openSearch(GOOGLE_SEARCH_PREFIX, (q) =>
+          `https://www.google.com/search?q=${encodeURIComponent(q)}`,
         );
         return;
       }
 
       if (lower.startsWith(BING_SEARCH_PREFIX)) {
-        openSearch(
-          BING_SEARCH_PREFIX,
-          (q) => `https://www.bing.com/search?q=${encodeURIComponent(q)}`,
+        openSearch(BING_SEARCH_PREFIX, (q) =>
+          `https://www.bing.com/search?q=${encodeURIComponent(q)}`,
         );
         return;
       }
