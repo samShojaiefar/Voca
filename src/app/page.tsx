@@ -202,7 +202,7 @@ const BING_SEARCH_PREFIX = "search bing for ";
 const WIKIPEDIA_SEARCH_PREFIX = "search wikipedia for ";
 
 // Wikipedia card timing and text length.
-const WIKI_HOLD_MS = 12000; // auto-close after this long
+const WIKI_HOLD_MS = 15000; // auto-close after this long
 const WIKI_RESUME_MS = 3000; // auto-close this long after the cursor leaves
 const WIKI_MAX_CHARS = 540;
 
@@ -648,14 +648,19 @@ export default function Home() {
     setNotchState("idle");
   }
 
-  function openWikiArticle(url: string) {
+async function openWikiArticle(url: string) {
+  try {
     if (window.voca?.openExternal) {
-      window.voca.openExternal(url);
+      await window.voca.openExternal(url);
     } else {
       window.open(url, "_blank");
     }
+  } catch (error) {
+    console.error("Failed to open Wiki article:", error);
+  } finally {
     closeWiki();
   }
+}
 
   useEffect(() => {
     window.voca?.onAltState((isDown) => {

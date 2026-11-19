@@ -1,3 +1,5 @@
+import { promises } from "dns";
+
 export {};
 
 type CapturedKey = {
@@ -29,13 +31,21 @@ type vocaConfig = {
   primaryLanguage?: string;
   secondaryLanguage?: string;
   setupComplete: boolean;
-};x
-
+};
+x;
+interface Window {
+  voca?: {
+    openExternal: (url: string) => Promise<void>;
+    setMouseCapture: (enabled: boolean) => void;
+  };
+}
 declare global {
   interface Window {
     voca: {
       getPermissionStatus: () => Promise<PermissionStatus>;
       openAccessibilitySettings(): void;
+      openExternal: (url: string) => Promise<void>;
+      setMouseCapture: (enabled: boolean) => void;
       openInputMonitoringSettings(): void;
       closeSetupWindow(): unknown;
       onAltState: (callback: (isDown: boolean) => void) => void;
