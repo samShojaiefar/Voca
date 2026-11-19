@@ -365,7 +365,7 @@ export default function HomePage() {
           {" "}
           <h1 className="title ">Home</h1>
           <button
-            className="accessability-btn"
+            className="accessability-btn setting"
             onClick={() => router.push("./accessability")}
           >
             <Settings color="#2d2d2d" />

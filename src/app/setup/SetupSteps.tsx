@@ -6,7 +6,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import logo from "@/app/assets/logo2.svg";
+import logo from "@/app/assets/logo.png";
 import { CheckIcon, PermissionIcon } from "./SetupIcons";
 import {
   DESIGNS,

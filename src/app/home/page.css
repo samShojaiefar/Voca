@@ -1030,3 +1030,20 @@ kbd,
 .title{
   margin-left: 20px;
 }
+.setting{
+    transition: 2s;
+transform: rotateZ(0deg);
+}
+.setting:hover{
+  transition: 2s;
+  pointer:pointer;
+transform: rotateZ(360deg);
+}
+.arrowleft{
+  transition: 0.5s;
+  transform:translateX(-20px);
+}
+.arrowleft:hover{
+  transition: 0.5s;
+  transform:translateX(-20px);
+}

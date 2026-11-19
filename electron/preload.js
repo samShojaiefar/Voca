@@ -1,229 +1,163 @@
-const {
-  contextBridge,
-  ipcRenderer,
-} = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld(
-  "voca",
-  {
-    // -------------------------------------------------------
-    // Existing notch listener
-    // -------------------------------------------------------
+contextBridge.exposeInMainWorld("voca", {
+  // -------------------------------------------------------
+  // Existing notch listener
+  // -------------------------------------------------------
 
-    onAltState: (callback) => {
-      ipcRenderer.on(
-        "alt-state",
-        (_event, isDown) => {
-          callback(isDown);
-        }
-      );
-    },
+  onAltState: (callback) => {
+    ipcRenderer.on("alt-state", (_event, isDown) => {
+      callback(isDown);
+    });
+  },
 
-    // -------------------------------------------------------
-    // Config
-    // -------------------------------------------------------
+  // -------------------------------------------------------
+  // Wikipedia card: mouse capture and opening links
+  // -------------------------------------------------------
 
-    getKeyOptions: () =>
-      ipcRenderer.invoke(
-        "get-key-options"
-      ),
+  setMouseCapture: (capture) => {
+    ipcRenderer.send("voca:mouse-capture", !!capture);
+  },
 
-    getConfig: () =>
-      ipcRenderer.invoke(
-        "get-config"
-      ),
+  openExternal: (url) => {
+    ipcRenderer.send("voca:open-external", url);
+  },
 
-    setTriggerKey: (keyId) =>
-      ipcRenderer.invoke(
-        "set-trigger-key",
-        keyId
-      ),
+  // -------------------------------------------------------
+  // Config
+  // -------------------------------------------------------
 
-    getModelOptions: () =>
-      ipcRenderer.invoke(
-        "get-model-options"
-      ),
+  getKeyOptions: () => ipcRenderer.invoke("get-key-options"),
 
-    startDictationTest: () =>
-      ipcRenderer.invoke(
-        "start-dictation-test"
-      ),
+  getConfig: () => ipcRenderer.invoke("get-config"),
 
-    getLanguageOptions: () =>
-      ipcRenderer.invoke(
-        "get-language-options"
-      ),
+  setTriggerKey: (keyId) => ipcRenderer.invoke("set-trigger-key", keyId),
 
-    setLanguagePrefs: (primary, secondary) =>
-      ipcRenderer.invoke(
-        "set-language-prefs",
-        primary,
-        secondary
-      ),
+  getModelOptions: () => ipcRenderer.invoke("get-model-options"),
 
-    // -------------------------------------------------------
-    // Permissions (macOS) and setup window
-    // -------------------------------------------------------
+  startDictationTest: () => ipcRenderer.invoke("start-dictation-test"),
 
-    getPermissionStatus: () =>
-      ipcRenderer.invoke(
-        "get-permission-status"
-      ),
+  getLanguageOptions: () => ipcRenderer.invoke("get-language-options"),
 
-    openAccessibilitySettings: () =>
-      ipcRenderer.invoke(
-        "open-accessibility-settings"
-      ),
+  setLanguagePrefs: (primary, secondary) =>
+    ipcRenderer.invoke("set-language-prefs", primary, secondary),
 
-    openInputMonitoringSettings: () =>
-      ipcRenderer.invoke(
-        "open-input-monitoring-settings"
-      ),
+  // -------------------------------------------------------
+  // Permissions (macOS) and setup window
+  // -------------------------------------------------------
 
-    closeSetupWindow: () => {
-      ipcRenderer.send(
-        "close-setup-window"
-      );
-    },
+  getPermissionStatus: () => ipcRenderer.invoke("get-permission-status"),
 
-    // NEW: save the name asked in setup (used in email sign-offs)
-    setUserName: (name) =>
-      ipcRenderer.invoke(
-        "set-user-name",
-        name
-      ),
+  openAccessibilitySettings: () =>
+    ipcRenderer.invoke("open-accessibility-settings"),
 
-    setModel: (modelId) =>
-      ipcRenderer.invoke(
-        "set-model",
-        modelId
-      ),
+  openInputMonitoringSettings: () =>
+    ipcRenderer.invoke("open-input-monitoring-settings"),
 
-    finishSetup: (keyId, modelId) =>
-      ipcRenderer.invoke(
-        "finish-setup",
-        keyId,
-        modelId
-      ),
+  closeSetupWindow: () => {
+    ipcRenderer.send("close-setup-window");
+  },
 
-    // -------------------------------------------------------
-    // NEW: keyboard capture
-    // -------------------------------------------------------
+  // Save the name asked in setup (used in email sign-offs)
+  setUserName: (name) => ipcRenderer.invoke("set-user-name", name),
 
-    startKeyCapture: (callback) => {
-      const handler = (
-        _event,
-        key
-      ) => {
-        callback(key);
-      };
+  setModel: (modelId) => ipcRenderer.invoke("set-model", modelId),
 
-      ipcRenderer.on(
-        "key-detected",
-        handler
-      );
+  finishSetup: (keyId, modelId) =>
+    ipcRenderer.invoke("finish-setup", keyId, modelId),
 
-      ipcRenderer.send(
-        "start-key-capture"
-      );
+  // -------------------------------------------------------
+  // Keyboard capture
+  // -------------------------------------------------------
 
-      return () => {
-        ipcRenderer.removeListener(
-          "key-detected",
-          handler
-        );
+  startKeyCapture: (callback) => {
+    const handler = (_event, key) => {
+      callback(key);
+    };
 
-        ipcRenderer.send(
-          "stop-key-capture"
-        );
-      };
-    },
+    ipcRenderer.on("key-detected", handler);
 
-    stopKeyCapture: () => {
-      ipcRenderer.send(
-        "stop-key-capture"
-      );
-    },
+    ipcRenderer.send("start-key-capture");
 
-    // -------------------------------------------------------
-    // NEW: whisper transcription result
-    // -------------------------------------------------------
+    return () => {
+      ipcRenderer.removeListener("key-detected", handler);
 
-    onTranscriptionResult: (callback) => {
-      const handler = (_event, text) => {
-        callback(text);
-      };
+      ipcRenderer.send("stop-key-capture");
+    };
+  },
 
-      ipcRenderer.on(
-        "transcription-result",
-        handler
-      );
+  stopKeyCapture: () => {
+    ipcRenderer.send("stop-key-capture");
+  },
 
-      return () => {
-        ipcRenderer.removeListener(
-          "transcription-result",
-          handler
-        );
-      };
-    },
+  // -------------------------------------------------------
+  // Whisper transcription result
+  // -------------------------------------------------------
 
-    // -------------------------------------------------------
-    // NEW: send a recorded WAV (ArrayBuffer) to main for
-    // whisper.cpp transcription. Recording itself happens in
-    // the renderer via getUserMedia — no sox/mic dependency.
-    // -------------------------------------------------------
+  onTranscriptionResult: (callback) => {
+    const handler = (_event, text) => {
+      callback(text);
+    };
 
-    sendAudioBuffer: (arrayBuffer) => {
-      ipcRenderer.send(
-        "audio-recorded",
-        arrayBuffer
-      );
-    },
+    ipcRenderer.on("transcription-result", handler);
 
-    // -------------------------------------------------------
-    // NEW: accounts (main page)
-    // -------------------------------------------------------
+    return () => {
+      ipcRenderer.removeListener("transcription-result", handler);
+    };
+  },
 
-    getAccounts: () => ipcRenderer.invoke("get-accounts"),
+  // -------------------------------------------------------
+  // Send a recorded WAV (ArrayBuffer) to main for whisper.cpp
+  // transcription. Recording itself happens in the renderer via
+  // getUserMedia — no sox/mic dependency.
+  // -------------------------------------------------------
 
-    addAccount: (data) => ipcRenderer.invoke("add-account", data),
+  sendAudioBuffer: (arrayBuffer) => {
+    ipcRenderer.send("audio-recorded", arrayBuffer);
+  },
 
-    updateAccount: (id, patch) =>
-      ipcRenderer.invoke("update-account", id, patch),
+  // -------------------------------------------------------
+  // Accounts (main page)
+  // -------------------------------------------------------
 
-    removeAccount: (id) => ipcRenderer.invoke("remove-account", id),
+  getAccounts: () => ipcRenderer.invoke("get-accounts"),
 
-    setActiveAccount: (id) =>
-      ipcRenderer.invoke("set-active-account", id),
+  addAccount: (data) => ipcRenderer.invoke("add-account", data),
 
-    openSetupWindow: () => {
-      ipcRenderer.send("open-setup-window");
-    },
+  updateAccount: (id, patch) =>
+    ipcRenderer.invoke("update-account", id, patch),
 
-    resetSetup: () => ipcRenderer.invoke("reset-setup"),
+  removeAccount: (id) => ipcRenderer.invoke("remove-account", id),
 
-    // -------------------------------------------------------
-    // NEW: dictation history (main page)
-    // -------------------------------------------------------
+  setActiveAccount: (id) => ipcRenderer.invoke("set-active-account", id),
 
-    getHistory: () => ipcRenderer.invoke("get-history"),
+  openSetupWindow: () => {
+    ipcRenderer.send("open-setup-window");
+  },
 
-    clearHistory: () => ipcRenderer.invoke("clear-history"),
+  resetSetup: () => ipcRenderer.invoke("reset-setup"),
 
-    setSaveHistory: (on) => ipcRenderer.invoke("set-save-history", on),
+  // -------------------------------------------------------
+  // Dictation history (main page)
+  // -------------------------------------------------------
 
-    openHistoryFolder: () => ipcRenderer.invoke("open-history-folder"),
+  getHistory: () => ipcRenderer.invoke("get-history"),
 
-    onHistoryUpdated: (callback) => {
-      const handler = (_event, list) => {
-        callback(list);
-      };
+  clearHistory: () => ipcRenderer.invoke("clear-history"),
 
-      ipcRenderer.on("history-updated", handler);
+  setSaveHistory: (on) => ipcRenderer.invoke("set-save-history", on),
 
-      return () => {
-        ipcRenderer.removeListener("history-updated", handler);
-      };
-    },
-  }
-);
+  openHistoryFolder: () => ipcRenderer.invoke("open-history-folder"),
+
+  onHistoryUpdated: (callback) => {
+    const handler = (_event, list) => {
+      callback(list);
+    };
+
+    ipcRenderer.on("history-updated", handler);
+
+    return () => {
+      ipcRenderer.removeListener("history-updated", handler);
+    };
+  },
+});

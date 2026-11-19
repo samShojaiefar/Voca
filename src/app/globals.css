@@ -44,13 +44,14 @@ body {
   position: relative;
   overflow: hidden;
   z-index: 9999;
-
   display: flex;
   align-items: center;
   justify-content: center;
 
   width: var(--idle-width, 200px);
-  height: var(--idle-h);
+  min-height: var(--idle-h);
+  max-width: 700px;
+  height: auto;
   margin-top: var(--top-offset, 0px);
   border-radius: var(--idle-radius);
 
@@ -273,11 +274,9 @@ body {
   flex: 1;
   min-width: 0;
   font-size: 13px;
-  line-height: 1.4;
+  max-width: 700px;
   color: var(--text);
   text-align: var(--result-align, start);
-  white-space: nowrap;
-  overflow: hidden;
   font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif;
 
   /* long dictation fades out at the edge instead of a hard "…" */
@@ -294,7 +293,6 @@ body {
   -webkit-mask-image: none;
   mask-image: none;
 }
-
 .notch-result-emoji {
   font-size: 22px;
   line-height: 1;
@@ -363,6 +361,148 @@ body {
 }
 
 /* =========================================================================
+   WIKIPEDIA CARD
+   ========================================================================= */
+
+.notch[data-state="wiki"] {
+  width: min(480px, calc(100vw - 16px));
+  height: auto;
+  min-height: var(--open-h);
+  padding: 12px 0 0;
+  border-radius: 0 0 18px 18px;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.notch-content.notch-wiki {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 16px 12px;
+  animation: notch-content-in 0.3s var(--ease) both;
+}
+
+/* header: chip on the left, close on the right */
+.notch-wiki-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+}
+
+.notch-wiki-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--label);
+  font-size: 16px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.notch-wiki-close:hover {
+  background: var(--chip-bg);
+  color: var(--text);
+}
+
+/* main row: thumbnail + text */
+.notch-wiki-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  text-align: start;
+  font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif;
+}
+
+.notch-wiki-thumb {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--chip-bg);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  user-select: none;
+  pointer-events: none;
+}
+
+.notch-wiki-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+
+.notch-wiki-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.notch-wiki-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--label);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* footer: divider + action button */
+.notch-wiki-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.notch-wiki-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  background: var(--chip-bg);
+  font-family: var(--notch-font, var(--font-geist-pixel-square)), sans-serif;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.notch-wiki-btn:hover {
+  background: var(--accent);
+  color: #000;
+}
+
+.notch-wiki-btn:active {
+  transform: scale(0.97);
+}
+
+.notch-wiki-btn:focus-visible,
+.notch-wiki-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* =========================================================================
    THEMES
    One block per design concept. Pick the active one in page.tsx
    (ACTIVE_THEME) — both blocks can stay in the file.
@@ -373,7 +513,8 @@ body {
 .notch[data-theme="notch"] {
   /* the iOS / macOS "spring-like" ease */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+  --font:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
     "Segoe UI", sans-serif;
 
   --idle-width: 104px;
@@ -418,7 +559,8 @@ body {
 
 .notch[data-theme="island"] {
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+  --font:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
     "Segoe UI", sans-serif;
 
   /* floats this far below the top edge — the Electron window must be at
@@ -429,7 +571,7 @@ body {
   --idle-width: 72px;
   --idle-h: 10px;
   --idle-radius: 999px;
-  --open-w: 60px;
+  --open-w: 0px;
   --open-h: 40px;
   --open-radius: 999px;
 
@@ -477,11 +619,7 @@ body {
   --open-radius: 0 0 20px 20px;
 
   /* surface */
-  --bg: linear-gradient(
-    180deg,
-    rgba(14, 15, 22, 0.96),
-    rgba(22, 24, 36, 0.94)
-  );
+  --bg: linear-gradient(180deg, rgba(14, 15, 22, 0.96), rgba(22, 24, 36, 0.94));
   --shadow:
     inset 0 -1px 0 rgba(255, 255, 255, 0.09),
     inset 1px 0 0 rgba(255, 255, 255, 0.04),

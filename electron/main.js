@@ -78,7 +78,6 @@ function resolveWhisperBinPath() {
 
 const WHISPER_BIN_PATH = resolveWhisperBinPath();
 
-
 // ---------------------------------------------------------------------------
 // Whisper model options (user picks one during setup)
 // ---------------------------------------------------------------------------
@@ -360,10 +359,7 @@ const DEFAULT_CONFIG = {
   saveHistoryToFile: false, // also append dictations to a .md file
 };
 
-const CONFIG_PATH = path.join(
-  app.getPath("userData"),
-  "voca-config.json"
-);
+const CONFIG_PATH = path.join(app.getPath("userData"), "voca-config.json");
 
 function loadConfig() {
   try {
@@ -386,10 +382,7 @@ function saveConfig(cfg) {
       recursive: true,
     });
 
-    fs.writeFileSync(
-      CONFIG_PATH,
-      JSON.stringify(cfg, null, 2)
-    );
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
   } catch (err) {
     console.error("Failed to save config:", err);
   }
@@ -534,7 +527,6 @@ function startVocaServer() {
     vocaBaseUrl = "http://localhost:3000";
     return Promise.resolve();
   }
-  // ...rest unchanged
   // out/ sits next to the electron/ folder (same layout loadFile used before).
   const outDir = path.resolve(__dirname, "..", "out");
 
@@ -641,13 +633,9 @@ function getKeyCodes(keyId) {
   }
 
   // Normal predefined key
-  const opt = KEY_OPTIONS.find(
-    (key) => key.id === keyId
-  );
+  const opt = KEY_OPTIONS.find((key) => key.id === keyId);
 
-  return opt
-    ? opt.codes
-    : KEY_OPTIONS[0].codes;
+  return opt ? opt.codes : KEY_OPTIONS[0].codes;
 }
 
 // ---------------------------------------------------------------------------
@@ -690,15 +678,21 @@ function getKeyGroups(keyId) {
 function isValidKeyId(keyId) {
   if (typeof keyId !== "string" || !keyId) return false;
 
-  return keyId.split("+").every((part) =>
-    part.startsWith("keycode:")
-      ? !Number.isNaN(Number(part.replace("keycode:", "")))
-      : KEY_OPTIONS.some((key) => key.id === part)
-  );
+  return keyId
+    .split("+")
+    .every((part) =>
+      part.startsWith("keycode:")
+        ? !Number.isNaN(Number(part.replace("keycode:", "")))
+        : KEY_OPTIONS.some((key) => key.id === part)
+    );
 }
 
 // Keys that are physically down right now (updated by the global hook).
 const pressedKeys = new Set();
+
+// Set to true the first time the global keyboard hook delivers an event.
+// Used by the macOS permission check (Input Monitoring can't be queried).
+let keyEventsReceived = false;
 
 function isTriggerHeld() {
   return activeKeyGroups.every((group) =>
@@ -706,13 +700,9 @@ function isTriggerHeld() {
   );
 }
 
-let activeKeyCodes = getKeyCodes(
-  config.triggerKey
-);
+let activeKeyCodes = getKeyCodes(config.triggerKey);
 
-let activeKeyGroups = getKeyGroups(
-  config.triggerKey
-);
+let activeKeyGroups = getKeyGroups(config.triggerKey);
 
 // ---------------------------------------------------------------------------
 // Convert uIOhook keycode → readable name
@@ -772,9 +762,7 @@ function getKeyLabel(keycode) {
   // Try to find the enum name automatically
   for (const [name, value] of Object.entries(UiohookKey)) {
     if (value === keycode) {
-      return name
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        .replace(/_/g, " ");
+      return name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ");
     }
   }
 
@@ -784,9 +772,20 @@ function getKeyLabel(keycode) {
 // ---------------------------------------------------------------------------
 // Windows
 // ---------------------------------------------------------------------------
+
+// Full-screen bounds of the primary display, captured when the notch window
+// is created. Used to restore the window after the Wikipedia card closes.
+let notchDisplayBounds = null;
+
+// Size of the strip that accepts clicks while the Wikipedia card is open.
+const CARD_CAPTURE_W = 520;
+const CARD_CAPTURE_H = 280;
+
 function createNotchWindow() {
   const display = screen.getPrimaryDisplay();
-  const { x, y, width, height } = display.bounds;
+  notchDisplayBounds = display.bounds;
+
+  const { x, y, width, height } = notchDisplayBounds;
 
   notchWin = new BrowserWindow({
     x,
@@ -810,9 +809,10 @@ function createNotchWindow() {
 
   notchWin.setAlwaysOnTop(true, "floating");
 
-  // Still click-through, so the full-screen transparent window
-  // never blocks input to the apps underneath it.
-  notchWin.setIgnoreMouseEvents(true);
+  // Click-through by default, so the full-screen transparent window never
+  // blocks input to the apps underneath it. `forward: true` still delivers
+  // hover events to the page.
+  notchWin.setIgnoreMouseEvents(true, { forward: true });
 
   notchWin.loadURL(`${vocaBaseUrl}/`);
 
@@ -820,26 +820,58 @@ function createNotchWindow() {
     notchWin = null;
   });
 }
+
+// While the Wikipedia card is open, shrink the window to a strip at the top
+// center of the screen and make it clickable. Otherwise restore the
+// full-screen, click-through window.
+function setNotchCapture(capture) {
+  if (!notchWin || notchWin.isDestroyed() || !notchDisplayBounds) return;
+
+  const full = notchDisplayBounds;
+
+  if (capture) {
+    const w = Math.min(CARD_CAPTURE_W, full.width);
+    const h = Math.min(CARD_CAPTURE_H, full.height);
+
+    notchWin.setBounds({
+      x: full.x + Math.round((full.width - w) / 2),
+      y: full.y,
+      width: w,
+      height: h,
+    });
+    notchWin.setFocusable(true);
+    notchWin.setIgnoreMouseEvents(false);
+    notchWin.show();
+    notchWin.focus();
+  } else {
+    notchWin.setIgnoreMouseEvents(true, { forward: true });
+    notchWin.setFocusable(false);
+    notchWin.setBounds(full);
+  }
+
+  console.log("[Voca] mouse capture:", capture, "bounds:", notchWin.getBounds());
+}
+
 function createSetupWindow() {
-setupWin = new BrowserWindow({
-  width: 1050,
-  height: 700,
-  resizable: true,
-  title: "Set up Voca",
+  setupWin = new BrowserWindow({
+    width: 1050,
+    height: 700,
+    resizable: true,
+    title: "Set up Voca",
 
-  titleBarStyle: "hidden",
-  titleBarOverlay: {
-    color: "#fff",       // title bar background
-    symbolColor: "#1e1e1e", // minimize/maximize/close icons
-    height: 36,
-  },
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      color: "#fff", // title bar background
+      symbolColor: "#1e1e1e", // minimize/maximize/close icons
+      height: 36,
+    },
 
-  webPreferences: {
-    preload: path.join(__dirname, "preload.js"),
-    contextIsolation: true,
-    nodeIntegration: false,
-  },
-});
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
 
   setupWin.loadURL(`${vocaBaseUrl}/setup`);
 
@@ -940,10 +972,7 @@ function createTray() {
 // Complete setup
 // ---------------------------------------------------------------------------
 
-function completeSetupAndLaunchNotch(
-  keyId,
-  modelId
-) {
+function completeSetupAndLaunchNotch(keyId, modelId) {
   if (modelId && isValidModelId(modelId)) {
     config.model = modelId;
   }
@@ -954,21 +983,15 @@ function completeSetupAndLaunchNotch(
   if (keyId && isValidKeyId(keyId)) {
     config.triggerKey = keyId;
 
-    activeKeyCodes =
-      getKeyCodes(keyId);
-
-    activeKeyGroups =
-      getKeyGroups(keyId);
+    activeKeyCodes = getKeyCodes(keyId);
+    activeKeyGroups = getKeyGroups(keyId);
   }
 
   config.setupComplete = true;
 
   saveConfig(config);
 
-  if (
-    setupWin &&
-    !setupWin.isDestroyed()
-  ) {
+  if (setupWin && !setupWin.isDestroyed()) {
     setupWin.close();
   }
 
@@ -992,18 +1015,14 @@ function startKeyCapture(window) {
   keyCaptureWindow = window;
   captureKeys = [];
 
-  console.log(
-    "[Voca] Key capture started"
-  );
+  console.log("[Voca] Key capture started");
 }
 
 function stopKeyCapture() {
   keyCaptureActive = false;
   keyCaptureWindow = null;
 
-  console.log(
-    "[Voca] Key capture stopped"
-  );
+  console.log("[Voca] Key capture stopped");
 }
 
 // ---------------------------------------------------------------------------
@@ -1105,79 +1124,56 @@ function setupIpc() {
     return config;
   });
 
-  ipcMain.handle(
-    "get-key-options",
-    () =>
-      KEY_OPTIONS.map(
-        ({ id, label }) => ({
-          id,
-          label,
-        })
-      )
+  ipcMain.handle("get-key-options", () =>
+    KEY_OPTIONS.map(({ id, label }) => ({
+      id,
+      label,
+    }))
   );
 
-  ipcMain.handle(
-    "get-config",
-    () => config
-  );
+  ipcMain.handle("get-config", () => config);
 
-  ipcMain.handle(
-    "get-model-options",
-    () =>
-      MODEL_OPTIONS.map((m) => ({
-        ...m,
-        installed: fs.existsSync(
-          path.join(WHISPER_DIR, "models", m.id)
-        ),
-      }))
+  ipcMain.handle("get-model-options", () =>
+    MODEL_OPTIONS.map((m) => ({
+      ...m,
+      installed: fs.existsSync(path.join(WHISPER_DIR, "models", m.id)),
+    }))
   );
 
   // The notch window (mic capture + overlay) normally only exists after
   // setup finishes. The test step needs it earlier so dictation works.
-  ipcMain.handle(
-    "start-dictation-test",
-    () => {
-      if (!notchWin || notchWin.isDestroyed()) {
-        createNotchWindow();
-      }
-
-      return true;
+  ipcMain.handle("start-dictation-test", () => {
+    if (!notchWin || notchWin.isDestroyed()) {
+      createNotchWindow();
     }
-  );
 
-  ipcMain.handle(
-    "get-language-options",
-    () => LANGUAGE_OPTIONS
-  );
+    return true;
+  });
 
-  ipcMain.handle(
-    "set-language-prefs",
-    (_event, primary, secondary) => {
-      config.primaryLanguage = isValidLanguageId(primary) ? primary : "auto";
-      config.secondaryLanguage =
-        isValidLanguageId(secondary) && secondary !== "auto"
-          ? secondary
-          : "none";
+  ipcMain.handle("get-language-options", () => LANGUAGE_OPTIONS);
 
-      config.activeLanguage = "primary";
+  ipcMain.handle("set-language-prefs", (_event, primary, secondary) => {
+    config.primaryLanguage = isValidLanguageId(primary) ? primary : "auto";
+    config.secondaryLanguage =
+      isValidLanguageId(secondary) && secondary !== "auto"
+        ? secondary
+        : "none";
 
-      saveConfig(config);
+    config.activeLanguage = "primary";
 
-      return config;
-    }
-  );
+    saveConfig(config);
 
-  ipcMain.handle(
-    "set-model",
-    (_event, modelId) => {
-      if (!isValidModelId(modelId)) return config;
+    return config;
+  });
 
-      config.model = modelId;
-      saveConfig(config);
+  ipcMain.handle("set-model", (_event, modelId) => {
+    if (!isValidModelId(modelId)) return config;
 
-      return config;
-    }
-  );
+    config.model = modelId;
+    saveConfig(config);
+
+    return config;
+  });
 
   // ---------------------------------------------------------
   // Permissions (only macOS needs them: the global key hook and the
@@ -1185,23 +1181,23 @@ function setupIpc() {
   // Windows and Linux report "no permissions required".
   // ---------------------------------------------------------
 
-ipcMain.handle("get-permission-status", () => {
-  const isMac = process.platform === "darwin";
+  ipcMain.handle("get-permission-status", () => {
+    const isMac = process.platform === "darwin";
 
-  return {
-    platform: process.platform,
-    requiresPermissions: isMac,
-    accessibilityGranted: isMac
-      ? systemPreferences.isTrustedAccessibilityClient(false)
-      : true,
-    // Input Monitoring can't be queried directly on macOS, so we track
-    // whether the global hook has actually delivered a key event.
-    inputMonitoringGranted: isMac ? keyEventsReceived : true,
-    microphoneGranted: isMac
-      ? systemPreferences.getMediaAccessStatus("microphone") === "granted"
-      : true,
-  };
-});
+    return {
+      platform: process.platform,
+      requiresPermissions: isMac,
+      accessibilityGranted: isMac
+        ? systemPreferences.isTrustedAccessibilityClient(false)
+        : true,
+      // Input Monitoring can't be queried directly on macOS, so we track
+      // whether the global hook has actually delivered a key event.
+      inputMonitoringGranted: isMac ? keyEventsReceived : true,
+      microphoneGranted: isMac
+        ? systemPreferences.getMediaAccessStatus("microphone") === "granted"
+        : true,
+    };
+  });
 
   ipcMain.handle("open-accessibility-settings", async () => {
     if (process.platform !== "darwin") return false;
@@ -1232,94 +1228,83 @@ ipcMain.handle("get-permission-status", () => {
     }
   });
 
-  ipcMain.handle(
-    "set-trigger-key",
-    (_event, keyId) => {
-      config.triggerKey = keyId;
+  ipcMain.handle("set-trigger-key", (_event, keyId) => {
+    config.triggerKey = keyId;
 
-      activeKeyCodes =
-        getKeyCodes(keyId);
+    activeKeyCodes = getKeyCodes(keyId);
+    activeKeyGroups = getKeyGroups(keyId);
 
-      activeKeyGroups =
-        getKeyGroups(keyId);
+    saveConfig(config);
 
-      saveConfig(config);
-
-      return config;
-    }
-  );
+    return config;
+  });
 
   // ---------------------------------------------------------
   // Start listening for a new trigger key
   // ---------------------------------------------------------
 
-  ipcMain.on(
-    "start-key-capture",
-    (event) => {
-      startKeyCapture(
-        event.sender
-      );
-    }
-  );
+  ipcMain.on("start-key-capture", (event) => {
+    startKeyCapture(event.sender);
+  });
 
   // ---------------------------------------------------------
   // Stop listening for a new trigger key
   // ---------------------------------------------------------
 
-  ipcMain.on(
-    "stop-key-capture",
-    () => {
-      stopKeyCapture();
-    }
-  );
+  ipcMain.on("stop-key-capture", () => {
+    stopKeyCapture();
+  });
 
   // ---------------------------------------------------------
   // Finish setup
   // ---------------------------------------------------------
 
-  ipcMain.handle(
-    "finish-setup",
-    (_event, keyId, modelId) => {
-      stopKeyCapture();
+  ipcMain.handle("finish-setup", (_event, keyId, modelId) => {
+    stopKeyCapture();
 
-      completeSetupAndLaunchNotch(
-        keyId,
-        modelId
-      );
+    completeSetupAndLaunchNotch(keyId, modelId);
 
-      return true;
-    }
-  );
+    return true;
+  });
 
   // ---------------------------------------------------------
-  // NEW: audio recorded in the renderer (already a WAV,
-  // 16kHz mono) — hand it to whisper.cpp for transcription.
+  // Audio recorded in the renderer (already a WAV, 16kHz mono)
+  // — hand it to whisper.cpp for transcription.
   // ---------------------------------------------------------
 
-  ipcMain.on(
-    "audio-recorded",
-    (_event, wavData) => {
-      const buffer = Buffer.isBuffer(wavData)
-        ? wavData
-        : Buffer.from(wavData);
+  ipcMain.on("audio-recorded", (_event, wavData) => {
+    const buffer = Buffer.isBuffer(wavData) ? wavData : Buffer.from(wavData);
 
-      if (buffer.length === 0) {
-        console.log(
-          "[Voca] No audio captured, skipping transcription"
-        );
-        return;
-      }
-
-      const tmpPath = path.join(
-        os.tmpdir(),
-        `voca-${Date.now()}.wav`
-      );
-
-      fs.writeFileSync(tmpPath, buffer);
-
-      transcribeAudio(tmpPath);
+    if (buffer.length === 0) {
+      console.log("[Voca] No audio captured, skipping transcription");
+      return;
     }
-  );
+
+    const tmpPath = path.join(os.tmpdir(), `voca-${Date.now()}.wav`);
+
+    fs.writeFileSync(tmpPath, buffer);
+
+    transcribeAudio(tmpPath);
+  });
+
+  // ---------------------------------------------------------
+  // The renderer asks for mouse capture only while the Wikipedia card shows.
+  // ---------------------------------------------------------
+
+  ipcMain.on("voca:mouse-capture", (_event, capture) => {
+    setNotchCapture(!!capture);
+  });
+
+  // ---------------------------------------------------------
+  // Open a link in the user's default browser. Only https links are
+  // accepted, so the renderer can't open arbitrary local paths.
+  // ---------------------------------------------------------
+
+  ipcMain.on("voca:open-external", (_event, url) => {
+    if (typeof url === "string" && url.startsWith("https://")) {
+      shell.openExternal(url);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1343,173 +1328,531 @@ ipcMain.handle("get-permission-status", () => {
 
 const EMOJI_LIST = {
   // --- faces ---
-  "smile": "😊", "happy": "😊", "smiley": "😃", "big smile": "😄",
-  "grin": "😁", "laugh": "😂", "laughing": "😂", "joy": "😂", "ho ho ": "😂",
-  "rofl": "🤣", "wink": "😉", "cool": "😎", "sunglasses": "😎",
-  "heart eyes": "😍", "in love": "😍", "kiss": "😘", "kissing": "😘",
-  "cry": "😢", "sad": "😢", "crying": "😭", "sob": "😭",
-  "angry": "😠", "mad": "😡", "think": "🤔", "thinking": "🤔",
-  "surprised": "😮", "shocked": "😱", "scream": "😱",
-  "sleepy": "😴", "sleep": "😴", "tired": "😫", "sick": "🤒",
-  "nerd": "🤓", "party face": "🥳", "hug": "🤗", "shy": "😳",
-  "embarrassed": "😳", "confused": "😕", "neutral": "😐",
-  "silly": "🤪", "crazy": "🤪", "tongue": "😛", "sweat": "😅",
-  "relieved": "😌", "pleading": "🥺", "skull": "💀", "ghost": "👻",
-  "clown": "🤡", "poop": "💩", "devil": "😈", "angel": "😇",
-  "robot": "🤖", "alien": "👽", "monkey": "🐵",
+  smile: "😊",
+  happy: "😊",
+  smiley: "😃",
+  "big smile": "😄",
+  grin: "😁",
+  laugh: "😂",
+  laughing: "😂",
+  joy: "😂",
+  "ho ho ": "😂",
+  rofl: "🤣",
+  wink: "😉",
+  cool: "😎",
+  sunglasses: "😎",
+  "heart eyes": "😍",
+  "in love": "😍",
+  kiss: "😘",
+  kissing: "😘",
+  cry: "😢",
+  sad: "😢",
+  crying: "😭",
+  sob: "😭",
+  angry: "😠",
+  mad: "😡",
+  think: "🤔",
+  thinking: "🤔",
+  surprised: "😮",
+  shocked: "😱",
+  scream: "😱",
+  sleepy: "😴",
+  sleep: "😴",
+  tired: "😫",
+  sick: "🤒",
+  nerd: "🤓",
+  "party face": "🥳",
+  hug: "🤗",
+  shy: "😳",
+  embarrassed: "😳",
+  confused: "😕",
+  neutral: "😐",
+  silly: "🤪",
+  crazy: "🤪",
+  tongue: "😛",
+  sweat: "😅",
+  relieved: "😌",
+  pleading: "🥺",
+  skull: "💀",
+  ghost: "👻",
+  clown: "🤡",
+  poop: "💩",
+  devil: "😈",
+  angel: "😇",
+  robot: "🤖",
+  alien: "👽",
+  monkey: "🐵",
 
   // --- hearts ---
-  "heart": "❤️", "red heart": "❤️", "love": "❤️", "broken heart": "💔",
-  "blue heart": "💙", "green heart": "💚", "yellow heart": "💛",
-  "purple heart": "💜", "black heart": "🖤", "white heart": "🤍",
-  "orange heart": "🧡", "pink heart": "🩷", "sparkling heart": "💖",
-  "two hearts": "💕", "kiss mark": "💋",
+  heart: "❤️",
+  "red heart": "❤️",
+  love: "❤️",
+  "broken heart": "💔",
+  "blue heart": "💙",
+  "green heart": "💚",
+  "yellow heart": "💛",
+  "purple heart": "💜",
+  "black heart": "🖤",
+  "white heart": "🤍",
+  "orange heart": "🧡",
+  "pink heart": "🩷",
+  "sparkling heart": "💖",
+  "two hearts": "💕",
+  "kiss mark": "💋",
 
   // --- hands & gestures ---
-  "thumbs up": "👍", "like": "👍", "thumbs down": "👎", "dislike": "👎",
-  "ok": "👌", "okay": "👌", "clap": "👏", "applause": "👏",
-  "pray": "🙏", "thanks": "🙏", "thank you": "🙏", "please": "🙏",
-  "folded hands": "🙏", "wave": "👋", "muscle": "💪", "strong": "💪",
-  "fist": "✊", "peace": "✌️", "victory": "✌️",
-  "crossed fingers": "🤞", "fingers crossed": "🤞",
-  "point up": "☝️", "point right": "👉", "point left": "👈",
-  "point down": "👇", "raised hands": "🙌", "handshake": "🤝","fuck": "🖕",
-  "writing hand": "✍️", "eyes": "👀", "brain": "🧠",
+  "thumbs up": "👍",
+  like: "👍",
+  "thumbs down": "👎",
+  dislike: "👎",
+  ok: "👌",
+  okay: "👌",
+  clap: "👏",
+  applause: "👏",
+  pray: "🙏",
+  thanks: "🙏",
+  "thank you": "🙏",
+  please: "🙏",
+  "folded hands": "🙏",
+  wave: "👋",
+  muscle: "💪",
+  strong: "💪",
+  fist: "✊",
+  peace: "✌️",
+  victory: "✌️",
+  "crossed fingers": "🤞",
+  "fingers crossed": "🤞",
+  "point up": "☝️",
+  "point right": "👉",
+  "point left": "👈",
+  "point down": "👇",
+  "raised hands": "🙌",
+  handshake: "🤝",
+  fuck: "🖕",
+  "writing hand": "✍️",
+  eyes: "👀",
+  brain: "🧠",
 
   // --- symbols ---
-  "fire": "🔥", "star": "⭐", "sparkles": "✨", "hundred": "💯",
-  "100": "💯", "check": "✅", "check mark": "✅", "cross": "❌", "x": "❌",
-  "warning": "⚠️", "question": "❓", "exclamation": "❗",
-  "lightning": "⚡", "zap": "⚡", "boom": "💥", "idea": "💡",
-  "light bulb": "💡", "bomb": "💣", "rocket": "🚀",
-  "party popper": "🎉", "confetti": "🎉", "party": "🎉",
-  "celebration": "🎉", "gift": "🎁", "trophy": "🏆", "medal": "🏅",
-  "crown": "👑", "money": "💰", "dollar": "💵", "diamond": "💎",
-  "lock": "🔒", "key": "🔑", "bell": "🔔", "pin": "📌",
-  "clock": "⏰", "hourglass": "⌛", "calendar": "📅",
+  fire: "🔥",
+  star: "⭐",
+  sparkles: "✨",
+  hundred: "💯",
+  "100": "💯",
+  check: "✅",
+  "check mark": "✅",
+  cross: "❌",
+  x: "❌",
+  warning: "⚠️",
+  question: "❓",
+  exclamation: "❗",
+  lightning: "⚡",
+  zap: "⚡",
+  boom: "💥",
+  idea: "💡",
+  "light bulb": "💡",
+  bomb: "💣",
+  rocket: "🚀",
+  "party popper": "🎉",
+  confetti: "🎉",
+  party: "🎉",
+  celebration: "🎉",
+  gift: "🎁",
+  trophy: "🏆",
+  medal: "🏅",
+  crown: "👑",
+  money: "💰",
+  dollar: "💵",
+  diamond: "💎",
+  lock: "🔒",
+  key: "🔑",
+  bell: "🔔",
+  pin: "📌",
+  clock: "⏰",
+  hourglass: "⌛",
+  calendar: "📅",
 
   // --- objects ---
-  "phone": "📱", "computer": "💻", "laptop": "💻", "email": "📧",
-  "mail": "✉️", "book": "📖", "pencil": "✏️", "memo": "📝",
-  "folder": "📁", "camera": "📷", "video camera": "🎥",
-  "music": "🎵", "microphone": "🎤", "headphones": "🎧",
-  "game": "🎮", "tv": "📺", "car": "🚗", "plane": "✈️",
-  "ship": "🚢", "bike": "🚲", "house": "🏠",
+  phone: "📱",
+  computer: "💻",
+  laptop: "💻",
+  email: "📧",
+  mail: "✉️",
+  book: "📖",
+  pencil: "✏️",
+  memo: "📝",
+  folder: "📁",
+  camera: "📷",
+  "video camera": "🎥",
+  music: "🎵",
+  microphone: "🎤",
+  headphones: "🎧",
+  game: "🎮",
+  tv: "📺",
+  car: "🚗",
+  plane: "✈️",
+  ship: "🚢",
+  bike: "🚲",
+  house: "🏠",
 
   // --- nature & weather ---
-  "earth": "🌍", "world": "🌍", "sun": "☀️", "moon": "🌙",
-  "cloud": "☁️", "rain": "🌧️", "snow": "❄️", "snowflake": "❄️",
-  "rainbow": "🌈", "umbrella": "☔", "ocean": "🌊", "water wave": "🌊",
-  "rose": "🌹", "flower": "🌸", "sunflower": "🌻", "tree": "🌳",
-  "plant": "🌱", "cactus": "🌵",
+  earth: "🌍",
+  world: "🌍",
+  sun: "☀️",
+  moon: "🌙",
+  cloud: "☁️",
+  rain: "🌧️",
+  snow: "❄️",
+  snowflake: "❄️",
+  rainbow: "🌈",
+  umbrella: "☔",
+  ocean: "🌊",
+  "water wave": "🌊",
+  rose: "🌹",
+  flower: "🌸",
+  sunflower: "🌻",
+  tree: "🌳",
+  plant: "🌱",
+  cactus: "🌵",
 
   // --- food & drink ---
-  "pizza": "🍕", "burger": "🍔", "fries": "🍟", "cake": "🎂",
-  "coffee": "☕", "tea": "🍵", "beer": "🍺", "wine": "🍷",
-  "apple": "🍎", "banana": "🍌", "strawberry": "🍓",
-  "watermelon": "🍉", "cookie": "🍪", "ice cream": "🍦",
-  "popcorn": "🍿", "taco": "🌮", "egg": "🥚", "bread": "🍞",
+  pizza: "🍕",
+  burger: "🍔",
+  fries: "🍟",
+  cake: "🎂",
+  coffee: "☕",
+  tea: "🍵",
+  beer: "🍺",
+  wine: "🍷",
+  apple: "🍎",
+  banana: "🍌",
+  strawberry: "🍓",
+  watermelon: "🍉",
+  cookie: "🍪",
+  "ice cream": "🍦",
+  popcorn: "🍿",
+  taco: "🌮",
+  egg: "🥚",
+  bread: "🍞",
 
   // --- animals ---
-  "dog": "🐶", "cat": "🐱", "lion": "🦁", "tiger": "🐯", "bear": "🐻",
-  "panda": "🐼", "rabbit": "🐰", "mouse": "🐭", "cow": "🐮", "pig": "🐷",
-  "frog": "🐸", "fish": "🐟", "bird": "🐦", "butterfly": "🦋",
-  "bee": "🐝", "unicorn": "🦄", "snake": "🐍", "turtle": "🐢",
-  "penguin": "🐧", "horse": "🐴", "elephant": "🐘", "chicken": "🐔",
+  dog: "🐶",
+  cat: "🐱",
+  lion: "🦁",
+  tiger: "🐯",
+  bear: "🐻",
+  panda: "🐼",
+  rabbit: "🐰",
+  mouse: "🐭",
+  cow: "🐮",
+  pig: "🐷",
+  frog: "🐸",
+  fish: "🐟",
+  bird: "🐦",
+  butterfly: "🦋",
+  bee: "🐝",
+  unicorn: "🦄",
+  snake: "🐍",
+  turtle: "🐢",
+  penguin: "🐧",
+  horse: "🐴",
+  elephant: "🐘",
+  chicken: "🐔",
 
   // --- sports ---
-  "football": "⚽", "soccer": "⚽", "basketball": "🏀",
+  football: "⚽",
+  soccer: "⚽",
+  basketball: "🏀",
 
   // --- more faces & reactions ---
-  "slightly smiling": "🙂", "upside down": "🙃", "relaxed": "☺️",
-  "blush": "😊", "salute": "🫡", "melting": "🫠", "yawn": "🥱",
-  "sweat smile": "😅", "facepalm": "🤦", "shrug": "🤷", "zany": "🤪",
-  "money face": "🤑", "zipper mouth": "🤐", "shush": "🤫",
-  "vomit": "🤮", "sneeze": "🤧", "hot face": "🥵", "cold face": "🥶",
-  "dizzy": "😵", "exploding head": "🤯", "mind blown": "🤯",
-  "rolling eyes": "🙄", "eye roll": "🙄", "smirk": "😏", "unamused": "😒",
-  "worried": "😟", "anxious": "😰", "scared": "😨", "disappointed": "😞",
-  "yum": "😋", "drooling": "🤤", "monocle": "🧐", "cowboy": "🤠",
+  "slightly smiling": "🙂",
+  "upside down": "🙃",
+  relaxed: "☺️",
+  blush: "😊",
+  salute: "🫡",
+  melting: "🫠",
+  yawn: "🥱",
+  "sweat smile": "😅",
+  facepalm: "🤦",
+  shrug: "🤷",
+  zany: "🤪",
+  "money face": "🤑",
+  "zipper mouth": "🤐",
+  shush: "🤫",
+  vomit: "🤮",
+  sneeze: "🤧",
+  "hot face": "🥵",
+  "cold face": "🥶",
+  dizzy: "😵",
+  "exploding head": "🤯",
+  "mind blown": "🤯",
+  "rolling eyes": "🙄",
+  "eye roll": "🙄",
+  smirk: "😏",
+  unamused: "😒",
+  worried: "😟",
+  anxious: "😰",
+  scared: "😨",
+  disappointed: "😞",
+  yum: "😋",
+  drooling: "🤤",
+  monocle: "🧐",
+  cowboy: "🤠",
 
   // --- more hands ---
-  "ok hand": "👌", "pinch": "🤏", "call me": "🤙", "rock on": "🤘",
-  "love you": "🤟", "raised hand": "✋", "high five": "🙌",
-  "thumbs": "👍", "palms up": "🤲", "nail polish": "💅",
+  "ok hand": "👌",
+  pinch: "🤏",
+  "call me": "🤙",
+  "rock on": "🤘",
+  "love you": "🤟",
+  "raised hand": "✋",
+  "high five": "🙌",
+  thumbs: "👍",
+  "palms up": "🤲",
+  "nail polish": "💅",
 
   // --- more symbols ---
-  "plus": "➕", "minus": "➖", "arrow right": "➡️", "arrow left": "⬅️",
-  "arrow up": "⬆️", "arrow down": "⬇️", "recycle": "♻️", "infinity": "♾️",
-  "red circle": "🔴", "green circle": "🟢", "blue circle": "🔵",
-  "yellow circle": "🟡", "stop": "🛑", "no entry": "⛔", "forbidden": "🚫",
-  "new": "🆕", "free": "🆓", "cool button": "🆒", "sos": "🆘",
-  "pushpin": "📍", "link": "🔗", "paperclip": "📎", "search": "🔍",
-  "magnifying glass": "🔍", "bookmark": "🔖", "flag": "🚩",
-  "checkered flag": "🏁", "target": "🎯", "dice": "🎲",
-  "chart": "📈", "chart up": "📈", "chart down": "📉", "bar chart": "📊",
-  "battery": "🔋", "plug": "🔌", "wrench": "🔧", "hammer": "🔨",
-  "gear": "⚙️", "tools": "🛠️", "magnet": "🧲", "shield": "🛡️",
-  "package": "📦", "inbox": "📥", "outbox": "📤", "megaphone": "📣",
-  "speech bubble": "💬", "thought bubble": "💭", "zzz": "💤",
-  "wave hand": "👋", "see no evil": "🙈", "hear no evil": "🙉",
+  plus: "➕",
+  minus: "➖",
+  "arrow right": "➡️",
+  "arrow left": "⬅️",
+  "arrow up": "⬆️",
+  "arrow down": "⬇️",
+  recycle: "♻️",
+  infinity: "♾️",
+  "red circle": "🔴",
+  "green circle": "🟢",
+  "blue circle": "🔵",
+  "yellow circle": "🟡",
+  stop: "🛑",
+  "no entry": "⛔",
+  forbidden: "🚫",
+  new: "🆕",
+  free: "🆓",
+  "cool button": "🆒",
+  sos: "🆘",
+  pushpin: "📍",
+  link: "🔗",
+  paperclip: "📎",
+  search: "🔍",
+  "magnifying glass": "🔍",
+  bookmark: "🔖",
+  flag: "🚩",
+  "checkered flag": "🏁",
+  target: "🎯",
+  dice: "🎲",
+  chart: "📈",
+  "chart up": "📈",
+  "chart down": "📉",
+  "bar chart": "📊",
+  battery: "🔋",
+  plug: "🔌",
+  wrench: "🔧",
+  hammer: "🔨",
+  gear: "⚙️",
+  tools: "🛠️",
+  magnet: "🧲",
+  shield: "🛡️",
+  package: "📦",
+  inbox: "📥",
+  outbox: "📤",
+  megaphone: "📣",
+  "speech bubble": "💬",
+  "thought bubble": "💭",
+  zzz: "💤",
+  "wave hand": "👋",
+  "see no evil": "🙈",
+  "hear no evil": "🙉",
   "speak no evil": "🙊",
 
   // --- more objects ---
-  "keyboard": "⌨️", "mouse device": "🖱️", "printer": "🖨️",
-  "bug": "🐛", "code": "👨‍💻", "developer": "👨‍💻", "coder": "👨‍💻",
-  "floppy disk": "💾", "cd": "💿", "satellite": "📡", "telescope": "🔭",
-  "microscope": "🔬", "pill": "💊", "syringe": "💉", "stethoscope": "🩺",
-  "glasses": "👓", "backpack": "🎒", "shopping cart": "🛒",
-  "credit card": "💳", "envelope": "✉️", "newspaper": "📰",
-  "scroll": "📜", "clipboard": "📋", "scissors": "✂️", "paint": "🎨",
-  "palette": "🎨", "guitar": "🎸", "piano": "🎹", "drum": "🥁",
-  "movie": "🎬", "ticket": "🎫", "balloon": "🎈", "candle": "🕯️",
-  "fireworks": "🎆", "christmas tree": "🎄", "santa": "🎅",
+  keyboard: "⌨️",
+  "mouse device": "🖱️",
+  printer: "🖨️",
+  bug: "🐛",
+  code: "👨‍💻",
+  developer: "👨‍💻",
+  coder: "👨‍💻",
+  "floppy disk": "💾",
+  cd: "💿",
+  satellite: "📡",
+  telescope: "🔭",
+  microscope: "🔬",
+  pill: "💊",
+  syringe: "💉",
+  stethoscope: "🩺",
+  glasses: "👓",
+  backpack: "🎒",
+  "shopping cart": "🛒",
+  "credit card": "💳",
+  envelope: "✉️",
+  newspaper: "📰",
+  scroll: "📜",
+  clipboard: "📋",
+  scissors: "✂️",
+  paint: "🎨",
+  palette: "🎨",
+  guitar: "🎸",
+  piano: "🎹",
+  drum: "🥁",
+  movie: "🎬",
+  ticket: "🎫",
+  balloon: "🎈",
+  candle: "🕯️",
+  fireworks: "🎆",
+  "christmas tree": "🎄",
+  santa: "🎅",
 
   // --- more food & drink ---
-  "sushi": "🍣", "ramen": "🍜", "spaghetti": "🍝", "salad": "🥗",
-  "sandwich": "🥪", "hot dog": "🌭", "donut": "🍩", "chocolate": "🍫",
-  "candy": "🍬", "lollipop": "🍭", "orange": "🍊", "lemon": "🍋",
-  "grapes": "🍇", "peach": "🍑", "cherry": "🍒", "avocado": "🥑",
-  "carrot": "🥕", "corn": "🌽", "pepper": "🌶️", "cheese": "🧀",
-  "milk": "🥛", "champagne": "🍾", "cocktail": "🍸", "cheers": "🥂",
-  "juice": "🧃", "bubble tea": "🧋",
+  sushi: "🍣",
+  ramen: "🍜",
+  spaghetti: "🍝",
+  salad: "🥗",
+  sandwich: "🥪",
+  "hot dog": "🌭",
+  donut: "🍩",
+  chocolate: "🍫",
+  candy: "🍬",
+  lollipop: "🍭",
+  orange: "🍊",
+  lemon: "🍋",
+  grapes: "🍇",
+  peach: "🍑",
+  cherry: "🍒",
+  avocado: "🥑",
+  carrot: "🥕",
+  corn: "🌽",
+  pepper: "🌶️",
+  cheese: "🧀",
+  milk: "🥛",
+  champagne: "🍾",
+  cocktail: "🍸",
+  cheers: "🥂",
+  juice: "🧃",
+  "bubble tea": "🧋",
 
   // --- more nature & animals ---
-  "lightning bolt": "⚡", "tornado": "🌪️", "volcano": "🌋",
-  "mountain": "⛰️", "beach": "🏖️", "palm tree": "🌴", "leaf": "🍃",
-  "four leaf clover": "🍀", "clover": "🍀", "mushroom": "🍄",
-  "tulip": "🌷", "bouquet": "💐", "full moon": "🌕", "new moon": "🌑",
-  "star struck": "🤩", "shooting star": "🌠", "milky way": "🌌",
-  "fox": "🦊", "wolf": "🐺", "koala": "🐨", "hamster": "🐹",
-  "sheep": "🐑", "goat": "🐐", "camel": "🐫", "giraffe": "🦒",
-  "zebra": "🦓", "dolphin": "🐬", "whale": "🐳", "shark": "🦈",
-  "octopus": "🐙", "crab": "🦀", "spider": "🕷️", "ant": "🐜",
-  "ladybug": "🐞", "owl": "🦉", "eagle": "🦅", "duck": "🦆",
-  "swan": "🦢", "flamingo": "🦩", "peacock": "🦚", "parrot": "🦜",
-  "dragon": "🐉", "t rex": "🦖", "dinosaur": "🦕",
+  "lightning bolt": "⚡",
+  tornado: "🌪️",
+  volcano: "🌋",
+  mountain: "⛰️",
+  beach: "🏖️",
+  "palm tree": "🌴",
+  leaf: "🍃",
+  "four leaf clover": "🍀",
+  clover: "🍀",
+  mushroom: "🍄",
+  tulip: "🌷",
+  bouquet: "💐",
+  "full moon": "🌕",
+  "new moon": "🌑",
+  "star struck": "🤩",
+  "shooting star": "🌠",
+  "milky way": "🌌",
+  fox: "🦊",
+  wolf: "🐺",
+  koala: "🐨",
+  hamster: "🐹",
+  sheep: "🐑",
+  goat: "🐐",
+  camel: "🐫",
+  giraffe: "🦒",
+  zebra: "🦓",
+  dolphin: "🐬",
+  whale: "🐳",
+  shark: "🦈",
+  octopus: "🐙",
+  crab: "🦀",
+  spider: "🕷️",
+  ant: "🐜",
+  ladybug: "🐞",
+  owl: "🦉",
+  eagle: "🦅",
+  duck: "🦆",
+  swan: "🦢",
+  flamingo: "🦩",
+  peacock: "🦚",
+  parrot: "🦜",
+  dragon: "🐉",
+  "t rex": "🦖",
+  dinosaur: "🦕",
 
   // --- more places & travel ---
-  "train": "🚆", "bus": "🚌", "taxi": "🚕", "truck": "🚚",
-  "helicopter": "🚁", "boat": "⛵", "anchor": "⚓", "map": "🗺️",
-  "tent": "⛺", "castle": "🏰", "hospital": "🏥", "school": "🏫",
-  "office": "🏢", "bank": "🏦", "statue of liberty": "🗽",
+  train: "🚆",
+  bus: "🚌",
+  taxi: "🚕",
+  truck: "🚚",
+  helicopter: "🚁",
+  boat: "⛵",
+  anchor: "⚓",
+  map: "🗺️",
+  tent: "⛺",
+  castle: "🏰",
+  hospital: "🏥",
+  school: "🏫",
+  office: "🏢",
+  bank: "🏦",
+  "statue of liberty": "🗽",
 
   // --- more sports ---
-  "tennis": "🎾", "baseball": "⚾", "volleyball": "🏐", "golf": "⛳",
-  "boxing": "🥊", "ping pong": "🏓", "bowling": "🎳", "swimming": "🏊",
-  "running": "🏃", "weightlifting": "🏋️", "gold medal": "🥇",
-  "silver medal": "🥈", "bronze medal": "🥉",
+  tennis: "🎾",
+  baseball: "⚾",
+  volleyball: "🏐",
+  golf: "⛳",
+  boxing: "🥊",
+  "ping pong": "🏓",
+  bowling: "🎳",
+  swimming: "🏊",
+  running: "🏃",
+  weightlifting: "🏋️",
+  "gold medal": "🥇",
+  "silver medal": "🥈",
+  "bronze medal": "🥉",
 
   // --- Persian names (say "ایموجی" + name) ---
-  "قلب": "❤️", "دل": "❤️", "عشق": "❤️", "لبخند": "😊", "خنده": "😂",
-  "گریه": "😢", "آتش": "🔥", "آتیش": "🔥", "لایک": "👍", "دستمریزاد": "👏",
-  "تشویق": "👏", "ستاره": "⭐", "تبریک": "🎉", "جشن": "🎉",
-  "هدیه": "🎁", "گل": "🌹", "خورشید": "☀️", "ماه": "🌙", "باران": "🌧️",
-  "برف": "❄️", "چشم": "👀", "فکر": "🤔", "تعجب": "😮", "عصبانی": "😡",
-  "خواب": "😴", "دعا": "🙏", "ممنون": "🙏", "تیک": "✅", "ضربدر": "❌",
-  "هشدار": "⚠️", "ایده": "💡", "موشک": "🚀", "پول": "💰", "چای": "🍵",
-  "قهوه": "☕", "پیتزا": "🍕", "گربه": "🐱", "سگ": "🐶", "ماشین": "🚗",
-  "خانه": "🏠", "کتاب": "📖", "موبایل": "📱", "ساعت": "⏰",
+  قلب: "❤️",
+  دل: "❤️",
+  عشق: "❤️",
+  لبخند: "😊",
+  خنده: "😂",
+  گریه: "😢",
+  آتش: "🔥",
+  آتیش: "🔥",
+  لایک: "👍",
+  دستمریزاد: "👏",
+  تشویق: "👏",
+  ستاره: "⭐",
+  تبریک: "🎉",
+  جشن: "🎉",
+  هدیه: "🎁",
+  گل: "🌹",
+  خورشید: "☀️",
+  ماه: "🌙",
+  باران: "🌧️",
+  برف: "❄️",
+  چشم: "👀",
+  فکر: "🤔",
+  تعجب: "😮",
+  عصبانی: "😡",
+  خواب: "😴",
+  دعا: "🙏",
+  ممنون: "🙏",
+  تیک: "✅",
+  ضربدر: "❌",
+  هشدار: "⚠️",
+  ایده: "💡",
+  موشک: "🚀",
+  پول: "💰",
+  چای: "🍵",
+  قهوه: "☕",
+  پیتزا: "🍕",
+  گربه: "🐱",
+  سگ: "🐶",
+  ماشین: "🚗",
+  خانه: "🏠",
+  کتاب: "📖",
+  موبایل: "📱",
+  ساعت: "⏰",
 };
 
 // Built once: a trigger word ("emoji", "emojis", "emoticon", or Persian
@@ -1521,15 +1864,15 @@ const EMOJI_REGEX = (() => {
   const names = Object.keys(EMOJI_LIST)
     .sort((a, b) => b.length - a.length)
     .map((name) =>
-      name
-        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-        .replace(/ /g, "[\\s-]+")
+      name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "[\\s-]+")
     );
 
   return new RegExp(
     "(?<![\\p{L}\\p{N}])(?:emojis?|emoji|emoticons?|ایموجی|اموجی)[\\s,.:;!\u060C-]+" +
       "(?:(?:of\\s+)?(?:a|an|the)\\s+)?" +
-      "(" + names.join("|") + ")(?![\\p{L}\\p{N}])[.,\u060C]?",
+      "(" +
+      names.join("|") +
+      ")(?![\\p{L}\\p{N}])[.,\u060C]?",
     "giu"
   );
 })();
@@ -1625,6 +1968,7 @@ function typeIntoActiveApp(text) {
   } catch (err) {
     console.error("[Voca] Could not read clipboard:", err);
   }
+
   clipboard.writeText(toPaste);
 
   // NEW (preferred): send Ctrl+V / Cmd+V with uiohook-napi itself. It is
@@ -1666,7 +2010,8 @@ function typeIntoActiveApp(text) {
         [
           "-NoProfile",
           "-NonInteractive",
-          "-WindowStyle", "Hidden",
+          "-WindowStyle",
+          "Hidden",
           "-Command",
           "Add-Type -AssemblyName System.Windows.Forms; " +
             "[System.Windows.Forms.SendKeys]::SendWait('^v')",
@@ -1716,10 +2061,13 @@ function runWhisper(wavPath, lang) {
   console.log(`[Voca] Transcribing with Whisper (language: ${lang})...`);
 
   const args = [
-    "-m", getModelPath(),
-    "-f", wavPath,
+    "-m",
+    getModelPath(),
+    "-f",
+    wavPath,
     "-nt", // no timestamps, plain text only
-    "-l", lang,
+    "-l",
+    lang,
   ];
 
   let proc;
@@ -1810,176 +2158,140 @@ function setupKeyboard() {
   // KEY DOWN
   // ---------------------------------------------------------
 
-  uIOhook.on(
-    "keydown",
-    (event) => {
-      // NEW: ignore keys that Voca injected itself
-      if (isInjecting) return;
+  uIOhook.on("keydown", (event) => {
+    // NEW: ignore keys that Voca injected itself
+    if (isInjecting) return;
 
-      // -----------------------------------------------------
-      // SETUP KEY CAPTURE MODE
-      // -----------------------------------------------------
+    keyEventsReceived = true;
 
-      // NEW: remember which keys are physically held (needed for combos)
-      pressedKeys.add(event.keycode);
+    // -----------------------------------------------------
+    // SETUP KEY CAPTURE MODE
+    // -----------------------------------------------------
 
-      if (keyCaptureActive) {
-        // NEW: collect every key held during capture. The result is sent
-        // on key RELEASE (see keyup below) so a combo like Alt + Shift
-        // can be detected as one trigger.
-        if (!captureKeys.includes(event.keycode)) {
-          captureKeys.push(event.keycode);
-        }
+    // NEW: remember which keys are physically held (needed for combos)
+    pressedKeys.add(event.keycode);
 
-        return;
+    if (keyCaptureActive) {
+      // NEW: collect every key held during capture. The result is sent
+      // on key RELEASE (see keyup below) so a combo like Alt + Shift
+      // can be detected as one trigger.
+      if (!captureKeys.includes(event.keycode)) {
+        captureKeys.push(event.keycode);
       }
 
-      // -----------------------------------------------------
-      // LANGUAGE SWITCH HOTKEY (Ctrl + Shift + L)
-      // -----------------------------------------------------
-
-      if (
-        event.keycode === LANGUAGE_SWITCH_KEY &&
-        (pressedKeys.has(UiohookKey.Ctrl) ||
-          pressedKeys.has(UiohookKey.CtrlRight)) &&
-        (pressedKeys.has(UiohookKey.Shift) ||
-          pressedKeys.has(UiohookKey.ShiftRight))
-      ) {
-        if (!languageSwitchHeld) {
-          languageSwitchHeld = true;
-          switchLanguage();
-        }
-
-        return;
-      }
-
-      // -----------------------------------------------------
-      // NORMAL VOCAL TRIGGER
-      // -----------------------------------------------------
-
-      if (
-        !activeKeyCodes.includes(
-          event.keycode
-        )
-      ) {
-        return;
-      }
-
-      // Ignore repeated keydown events
-      if (keyIsDown) {
-        return;
-      }
-
-      // NEW: for a combo (e.g. Alt + Shift) wait until every key is held
-      if (!isTriggerHeld()) {
-        return;
-      }
-
-      keyIsDown = true;
-
-      altHoldTimer = setTimeout(() => {
-        if (
-          keyIsDown &&
-          notchWin &&
-          !notchWin.isDestroyed()
-        ) {
-          // NEW: stop Alt / Win from opening the target app's menu
-          maskMenuActivation();
-
-          // Renderer listens for this and starts capturing
-          // mic audio via getUserMedia.
-          notchWin.webContents.send(
-            "alt-state",
-            true
-          );
-        }
-      }, 100);
+      return;
     }
-  );
+
+    // -----------------------------------------------------
+    // LANGUAGE SWITCH HOTKEY (Ctrl + Shift + L)
+    // -----------------------------------------------------
+
+    if (
+      event.keycode === LANGUAGE_SWITCH_KEY &&
+      (pressedKeys.has(UiohookKey.Ctrl) ||
+        pressedKeys.has(UiohookKey.CtrlRight)) &&
+      (pressedKeys.has(UiohookKey.Shift) ||
+        pressedKeys.has(UiohookKey.ShiftRight))
+    ) {
+      if (!languageSwitchHeld) {
+        languageSwitchHeld = true;
+        switchLanguage();
+      }
+
+      return;
+    }
+
+    // -----------------------------------------------------
+    // NORMAL VOCAL TRIGGER
+    // -----------------------------------------------------
+
+    if (!activeKeyCodes.includes(event.keycode)) {
+      return;
+    }
+
+    // Ignore repeated keydown events
+    if (keyIsDown) {
+      return;
+    }
+
+    // NEW: for a combo (e.g. Alt + Shift) wait until every key is held
+    if (!isTriggerHeld()) {
+      return;
+    }
+
+    keyIsDown = true;
+
+    altHoldTimer = setTimeout(() => {
+      if (keyIsDown && notchWin && !notchWin.isDestroyed()) {
+        // NEW: stop Alt / Win from opening the target app's menu
+        maskMenuActivation();
+
+        // Renderer listens for this and starts capturing
+        // mic audio via getUserMedia.
+        notchWin.webContents.send("alt-state", true);
+      }
+    }, 100);
+  });
 
   // ---------------------------------------------------------
   // KEY UP
   // ---------------------------------------------------------
 
-  uIOhook.on(
-    "keyup",
-    (event) => {
-      // NEW: ignore keys that Voca injected itself
-      if (isInjecting) return;
+  uIOhook.on("keyup", (event) => {
+    // NEW: ignore keys that Voca injected itself
+    if (isInjecting) return;
 
-      // NEW: forget the released key
-      pressedKeys.delete(event.keycode);
+    // NEW: forget the released key
+    pressedKeys.delete(event.keycode);
 
-      if (event.keycode === LANGUAGE_SWITCH_KEY) {
-        languageSwitchHeld = false;
-      }
-
-      // NEW: finish key capture (single key or combo) on release
-      if (
-        keyCaptureActive &&
-        keyCaptureWindow &&
-        captureKeys.length > 0
-      ) {
-        const keyId = captureKeys
-          .map((code) => `keycode:${code}`)
-          .join("+");
-        const label = captureKeys.map(getKeyLabel).join(" + ");
-
-        keyCaptureWindow.send("key-detected", {
-          id: keyId,
-          label: label,
-        });
-
-        // Only detect one key / combo
-        captureKeys = [];
-        keyCaptureActive = false;
-
-        return;
-      }
-
-      if (
-        !activeKeyCodes.includes(
-          event.keycode
-        )
-      ) {
-        return;
-      }
-
-      // NEW: only react if the trigger (single key or the full combo)
-      // was actually active
-      if (!keyIsDown) {
-        return;
-      }
-
-      keyIsDown = false;
-
-      if (altHoldTimer) {
-        clearTimeout(
-          altHoldTimer
-        );
-
-        altHoldTimer = null;
-      }
-
-      if (
-        notchWin &&
-        !notchWin.isDestroyed()
-      ) {
-        // Renderer listens for this, stops capturing, encodes
-        // the WAV and sends it back via "audio-recorded".
-        notchWin.webContents.send(
-          "alt-state",
-          false
-        );
-      }
+    if (event.keycode === LANGUAGE_SWITCH_KEY) {
+      languageSwitchHeld = false;
     }
-  );
+
+    // NEW: finish key capture (single key or combo) on release
+    if (keyCaptureActive && keyCaptureWindow && captureKeys.length > 0) {
+      const keyId = captureKeys.map((code) => `keycode:${code}`).join("+");
+      const label = captureKeys.map(getKeyLabel).join(" + ");
+
+      keyCaptureWindow.send("key-detected", {
+        id: keyId,
+        label: label,
+      });
+
+      // Only detect one key / combo
+      captureKeys = [];
+      keyCaptureActive = false;
+
+      return;
+    }
+
+    if (!activeKeyCodes.includes(event.keycode)) {
+      return;
+    }
+
+    // NEW: only react if the trigger (single key or the full combo)
+    // was actually active
+    if (!keyIsDown) {
+      return;
+    }
+
+    keyIsDown = false;
+
+    if (altHoldTimer) {
+      clearTimeout(altHoldTimer);
+      altHoldTimer = null;
+    }
+
+    if (notchWin && !notchWin.isDestroyed()) {
+      // Renderer listens for this, stops capturing, encodes
+      // the WAV and sends it back via "audio-recorded".
+      notchWin.webContents.send("alt-state", false);
+    }
+  });
 
   uIOhook.start();
 
-  console.log(
-    "[Voca] Global keyboard hook started"
-  );
+  console.log("[Voca] Global keyboard hook started");
 }
 
 // ---------------------------------------------------------------------------
@@ -2032,11 +2344,8 @@ app.on("will-quit", () => {
   }
 });
 
-app.on(
-  "window-all-closed",
-  (event) => {
-    if (config.setupComplete) {
-      event.preventDefault();
-    }
+app.on("window-all-closed", (event) => {
+  if (config.setupComplete) {
+    event.preventDefault();
   }
-);
+});

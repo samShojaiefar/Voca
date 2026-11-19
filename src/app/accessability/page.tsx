@@ -426,7 +426,7 @@ const Accessability = () => {
           {" "}
           <h1 className="title ">Accessibility</h1>
           <button
-            className="accessability-btn"
+            className="accessability-btn arrowleft"
             onClick={() => router.push("./home")}
           >
             <ArrowLeft color="#2d2d2d" />

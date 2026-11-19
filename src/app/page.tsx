@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { searchWikipedia, type WikipediaResult } from "@/lib/wikipedia";
 
 const TARGET_SAMPLE_RATE = 16000;
 
@@ -195,11 +196,17 @@ const LANGUAGE_MESSAGE = /^Language:\s*(.+)$/i;
 // whisper returns this when it heard nothing.
 const BLANK_AUDIO = "[BLANK_AUDIO]";
 
-// "search google for <query>" opens a Google search.
-const GOOGLE_SEARCH_PREFIX = "search google for " ;
-const BING_SEARCH_PREFIX = "search bing for " ;
+// Voice commands: "search <engine> for <query>".
+const GOOGLE_SEARCH_PREFIX = "search google for ";
+const BING_SEARCH_PREFIX = "search bing for ";
+const WIKIPEDIA_SEARCH_PREFIX = "search wikipedia for ";
 
-type NotchState = "idle" | "listening" | "processing" | "result";
+// Wikipedia card timing and text length.
+const WIKI_HOLD_MS = 12000; // auto-close after this long
+const WIKI_RESUME_MS = 3000; // auto-close this long after the cursor leaves
+const WIKI_MAX_CHARS = 540;
+
+type NotchState = "idle" | "listening" | "processing" | "result" | "wiki";
 
 // ---------------------------------------------------------------------------
 // Visualizer: orb halo + bars follow the mic level (written straight to the
@@ -298,7 +305,8 @@ function Visualizer({
 
 // ---------------------------------------------------------------------------
 // Result: only short status messages are shown (language switch, "try
-// another time"). What you dictate is never displayed in the notch.
+// another time", "No Wikipedia article found"). What you dictate is never
+// displayed in the notch.
 // ---------------------------------------------------------------------------
 
 function ResultContent({ text }: { text: string }) {
@@ -324,9 +332,89 @@ function ResultContent({ text }: { text: string }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Wikipedia card: thumbnail, title, short summary, and actions.
+// ---------------------------------------------------------------------------
+
+function getArticleUrl(article: WikipediaResult): string {
+  if (article.url) return article.url;
+
+  // Fallback if the API didn't return a canonical URL.
+  const slug = encodeURIComponent(article.title.replace(/ /g, "_"));
+  return `https://en.wikipedia.org/wiki/${slug}`;
+}
+
+function WikiContent({
+  article,
+  onOpen,
+  onClose,
+  onPause,
+  onResume,
+}: {
+  article: WikipediaResult;
+  onOpen: (url: string) => void;
+  onClose: () => void;
+  onPause: () => void;
+  onResume: () => void;
+}) {
+  const summary =
+    article.extract.length > WIKI_MAX_CHARS
+      ? article.extract.slice(0, WIKI_MAX_CHARS).replace(/\s+\S*$/, "") + "…"
+      : article.extract;
+
+  return (
+    <div
+      className="notch-content notch-wiki"
+      onMouseEnter={onPause}
+      onMouseLeave={onResume}
+    >
+      <div className="notch-wiki-head">
+        <span className="notch-tag">Wikipedia</span>
+        <button
+          type="button"
+          className="notch-wiki-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="notch-wiki-main" dir="auto">
+        {article.thumbnail && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="notch-wiki-thumb"
+            src={article.thumbnail}
+            alt=""
+            draggable={false}
+          />
+        )}
+
+        <div className="notch-wiki-body">
+          <span className="notch-wiki-title">{article.title}</span>
+          <span className="notch-wiki-text">{summary}</span>
+        </div>
+      </div>
+
+      <div className="notch-wiki-footer">
+        <button
+          type="button"
+          className="notch-wiki-btn"
+          onClick={() => onOpen(getArticleUrl(article))}
+        >
+          Open article
+          <span aria-hidden="true"> ↗</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [notchState, setNotchState] = useState<NotchState>("idle");
   const [message, setMessage] = useState("");
+  const [wiki, setWiki] = useState<WikipediaResult | null>(null);
   const [theme, setTheme] = useState<string>(ACTIVE_THEME);
   const [fontId, setFontId] = useState<string>("pixel");
 
@@ -343,6 +431,7 @@ export default function Home() {
   const processingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const wikiReqRef = useRef(0);
 
   // The design picked on the setup page. Read once on mount, and follow
   // changes live (the "storage" event fires here when the setup window
@@ -369,7 +458,11 @@ export default function Home() {
         setTheme(e.newValue);
       }
 
-      if (e.key === FONT_STORAGE_KEY && e.newValue && FONT_CSS_VARS[e.newValue]) {
+      if (
+        e.key === FONT_STORAGE_KEY &&
+        e.newValue &&
+        FONT_CSS_VARS[e.newValue]
+      ) {
         setFontId(e.newValue);
       }
     }
@@ -431,6 +524,12 @@ export default function Home() {
       cancelled = true;
     };
   }, [notchState, message, fontId]);
+
+  // Click-through control: only take mouse input while the Wikipedia card is
+  // on screen. The main process shrinks the window to a clickable strip then.
+  useEffect(() => {
+    window.voca?.setMouseCapture?.(notchState === "wiki");
+  }, [notchState]);
 
   // Set up the mic graph once, on mount, so holding the trigger key never
   // has to wait on a getUserMedia round trip. The mic stays open but is
@@ -531,14 +630,42 @@ export default function Home() {
     return true;
   }
 
+  // Wikipedia card helpers: hovering keeps it open, leaving restarts a short
+  // countdown, and closing or opening the article dismisses it.
+  function pauseWikiTimer() {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+  }
+
+  function resumeWikiTimer() {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setNotchState("idle");
+    }, WIKI_RESUME_MS);
+  }
+
+  function closeWiki() {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    setNotchState("idle");
+  }
+
+  function openWikiArticle(url: string) {
+    if (window.voca?.openExternal) {
+      window.voca.openExternal(url);
+    } else {
+      window.open(url, "_blank");
+    }
+    closeWiki();
+  }
+
   useEffect(() => {
     window.voca?.onAltState((isDown) => {
       if (isDown) {
-        // Fresh press — clear any leftover result and start listening.
+        // Fresh press — clear any leftover result or card and start listening.
         if (hideTimerRef.current) {
           clearTimeout(hideTimerRef.current);
         }
         setMessage("");
+        setWiki(null);
         setNotchState("listening");
 
         chunksRef.current = [];
@@ -572,8 +699,10 @@ export default function Home() {
     });
   }, []);
 
+  // One handler for every transcription result: search commands, Wikipedia,
+  // status messages, and plain dictation.
   useEffect(() => {
-    const unsubscribe = window.voca?.onTranscriptionResult?.((text) => {
+    const unsubscribe = window.voca?.onTranscriptionResult?.(async (text) => {
       console.log("[Voca] Transcript:", text);
 
       if (processingTimeoutRef.current) {
@@ -587,17 +716,63 @@ export default function Home() {
       }
 
       const trimmed = text.trim();
+      const lower = trimmed.toLowerCase();
 
-      // Voice command: "search google for ..." opens a Google search.
-      if (trimmed.toLowerCase().startsWith(GOOGLE_SEARCH_PREFIX)) {
-        const query = trimmed.slice(GOOGLE_SEARCH_PREFIX.length).trim();
+      // Voice commands that open a search page; the notch just closes.
+      const openSearch = (prefix: string, makeUrl: (q: string) => string) => {
+        const query = trimmed.slice(prefix.length).trim();
+        if (query) window.open(makeUrl(query), "_blank");
+        setNotchState("idle");
+      };
 
-        if (query) {
-          window.open(
-            `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-            "_blank",
-          );
+      if (lower.startsWith(GOOGLE_SEARCH_PREFIX)) {
+        openSearch(
+          GOOGLE_SEARCH_PREFIX,
+          (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+        );
+        return;
+      }
+
+      if (lower.startsWith(BING_SEARCH_PREFIX)) {
+        openSearch(
+          BING_SEARCH_PREFIX,
+          (q) => `https://www.bing.com/search?q=${encodeURIComponent(q)}`,
+        );
+        return;
+      }
+
+      // "search wikipedia for ..." shows a summary card in the notch.
+      if (lower.startsWith(WIKIPEDIA_SEARCH_PREFIX)) {
+        const query = trimmed.slice(WIKIPEDIA_SEARCH_PREFIX.length).trim();
+
+        if (!query) {
+          setNotchState("idle");
+          return;
         }
+
+        const reqId = ++wikiReqRef.current;
+        setNotchState("processing");
+
+        const article = await searchWikipedia(query);
+
+        // A newer command arrived while this one was loading.
+        if (reqId !== wikiReqRef.current) return;
+
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+
+        if (!article) {
+          setMessage("No Wikipedia article found");
+          setNotchState("result");
+          hideTimerRef.current = setTimeout(() => setNotchState("idle"), 1800);
+          return;
+        }
+
+        setWiki(article);
+        setNotchState("wiki");
+        hideTimerRef.current = setTimeout(() => {
+          setNotchState("idle");
+        }, WIKI_HOLD_MS);
+        return;
       }
 
       const isLanguage = LANGUAGE_MESSAGE.test(trimmed);
@@ -613,9 +788,7 @@ export default function Home() {
       setMessage(isBlank ? "Try another time" : trimmed);
       setNotchState("result");
 
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-      }
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
 
       hideTimerRef.current = setTimeout(() => {
         setNotchState("idle");
@@ -624,74 +797,13 @@ export default function Home() {
 
     return () => {
       unsubscribe?.();
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-      }
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       if (processingTimeoutRef.current) {
         clearTimeout(processingTimeoutRef.current);
       }
     };
   }, []);
-  useEffect(() => {
-    const unsubscribe = window.voca?.onTranscriptionResult?.((text) => {
-      console.log("[Voca] Transcript:", text);
 
-      if (processingTimeoutRef.current) {
-        clearTimeout(processingTimeoutRef.current);
-        processingTimeoutRef.current = null;
-      }
-
-      if (!text) {
-        setNotchState("idle");
-        return;
-      }
-
-      const trimmed = text.trim();
-
-      // Voice command: "search google for ..." opens a Google search.
-      if (trimmed.toLowerCase().startsWith(BING_SEARCH_PREFIX)) {
-        const query = trimmed.slice(BING_SEARCH_PREFIX.length).trim();
-
-        if (query) {
-          window.open(
-            `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
-            "_blank",
-          );
-        }
-      }
-
-      const isLanguage = LANGUAGE_MESSAGE.test(trimmed);
-      const isBlank = trimmed === BLANK_AUDIO;
-
-      // Normal dictation is typed into the active app, so the notch just
-      // closes. Only status messages stay on screen for a moment.
-      if (!isLanguage && !isBlank) {
-        setNotchState("idle");
-        return;
-      }
-
-      setMessage(isBlank ? "Try another time" : trimmed);
-      setNotchState("result");
-
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-      }
-
-      hideTimerRef.current = setTimeout(() => {
-        setNotchState("idle");
-      }, 1800);
-    });
-
-    return () => {
-      unsubscribe?.();
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-      }
-      if (processingTimeoutRef.current) {
-        clearTimeout(processingTimeoutRef.current);
-      }
-    };
-  }, []);
   const config = THEMES[theme] ?? THEMES[ACTIVE_THEME];
   const live = notchState === "listening" || notchState === "processing";
 
@@ -731,6 +843,17 @@ export default function Home() {
 
         {notchState === "result" && (
           <ResultContent key="result" text={message} />
+        )}
+
+        {notchState === "wiki" && wiki && (
+          <WikiContent
+            key={wiki.title}
+            article={wiki}
+            onOpen={openWikiArticle}
+            onClose={closeWiki}
+            onPause={pauseWikiTimer}
+            onResume={resumeWikiTimer}
+          />
         )}
       </div>
     </main>
