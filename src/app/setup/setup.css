@@ -1119,3 +1119,126 @@ select {
   font-size: 18px;
   line-height: 1;
 }
+
+/* =========================================
+   TRY IT OUT (minimal, single column)
+   Replace BOTH old blocks:
+   "TRY IT OUT: two-column layout" and "TRY IT OUT"
+   ========================================= */
+
+.setup-card:has(.test-layout) {
+  width: 460px;
+}
+
+.setup-card:has(.test-layout) .setup-subtitle {
+  font-size: 15px;
+  margin-bottom: 28px;
+}
+
+/* key cap */
+.keycap {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 2px 9px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  border-bottom-width: 2px;
+  background: #fff;
+  color: #000;
+  font: inherit;
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+
+.keycap-sm {
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.test-layout {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 32px;
+}
+
+/* the text area is the hero: no border, soft fill */
+.test-field {
+  position: relative;
+  width: 100%;
+}
+
+.test-field .test-input {
+  width: 100%;
+  height: 180px;
+  margin: 0;
+  padding: 20px 20px 48px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: #f6f7f9;
+  color: #000;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.test-field .test-input:focus {
+  background: #fff;
+  border-color: #d2dffa;
+  box-shadow: 0 0 0 4px rgba(158, 175, 255, 0.18);
+}
+
+.test-field .test-input::placeholder {
+  color: #b4b9c4;
+}
+
+/* status */
+.test-pill {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  font-size: 12px;
+  color: #8a909c;
+  transition: color 0.2s ease;
+}
+
+.test-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c4c9d4;
+  animation: listening-pulse 1.4s ease-in-out infinite;
+}
+
+.test-pill-ok {
+  color: #2f8f61;
+  background: transparent;
+}
+
+.test-pill-ok .test-pill-dot {
+  background: #4caf7d;
+  animation: none;
+}
+
+/* single quiet hint line */
+.test-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #8a909c;
+  text-align: center;
+}
+
+/* buttons: one filled action, Back is a plain text link */
+
+.setup-card:has(.test-layout) .back-btn:hover {
+  color: #000;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

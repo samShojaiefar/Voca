@@ -2118,7 +2118,7 @@ function runWhisper(wavPath, lang) {
 
     const rawText = output.trim();
 
-    // NEW: turn spoken "emoji heart" into ❤️ before showing / pasting it.
+    // Turn spoken "emoji heart" into ❤️ before showing / pasting it.
     let text = applyEmojiCommands(rawText);
 
     if (text !== rawText) {
@@ -2131,10 +2131,17 @@ function runWhisper(wavPath, lang) {
       notchWin.webContents.send("transcription-result", text);
     }
 
-    // NEW: also write the text into the currently focused input.
     if (text) {
-      addToHistory(text);
-      typeIntoActiveApp(text);
+      // Search commands open a browser or show a Wikipedia card. They must
+      // not be pasted into the focused input or saved as dictation.
+      const isSearchCommand = /^search (google|bing|wikipedia) for /i.test(
+        text.trim()
+      );
+
+      if (!isSearchCommand) {
+        addToHistory(text);
+        typeIntoActiveApp(text);
+      }
     }
   });
 

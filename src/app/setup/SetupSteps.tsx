@@ -18,11 +18,14 @@ import {
 import type { SetupState } from "./useSetup";
 import {
   AudioLines,
+  BookOpen,
   ChevronDown,
+  Globe,
   Keyboard,
   Mic,
   PersonStanding,
   Search,
+  Smile,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -468,6 +471,7 @@ export function ChangeKeyStep({
     </>
   );
 }
+
 export function LanguageStep({
   languages,
   saving,
@@ -635,6 +639,28 @@ export function FontStep({
   );
 }
 
+// keep your existing imports (SetupState, StepActions, etc.)
+
+// uiohook-style key codes -> readable labels
+const KEY_LABELS: Record<string, string> = {
+  "29": "Ctrl",
+  "3613": "Right Ctrl",
+  "42": "Shift",
+  "54": "Right Shift",
+  "56": "Alt",
+  "3640": "Right Alt",
+  "3675": "Win",
+  "3676": "Right Win",
+  "57": "Space",
+  "58": "Caps Lock",
+};
+
+function formatKey(raw: string): string {
+  const match = /^KEYCODE:(\d+)$/i.exec(raw);
+  if (!match) return raw;
+  return KEY_LABELS[match[1]] ?? raw;
+}
+
 export function TestStep({
   currentKey,
   showLanguageSwitchHint,
@@ -650,37 +676,55 @@ export function TestStep({
   onBack: () => void;
   onFinish: () => void;
 }) {
+  const worked = test.text.trim().length > 0;
+
   return (
     <>
       <h1 className="setup-title">Try it out</h1>
 
       <p className="setup-subtitle">
-        Click the box, then hold <strong>{currentKey}</strong> and speak. Your
-        words will appear here.
-        {showLanguageSwitchHint && (
-          <>
-            {" "}
-            Press <strong>Ctrl + Shift + L</strong> to switch language.
-          </>
-        )}{" "}
-        Want an emoji? Say <strong>“emoji heart”</strong> and you&apos;ll get ❤️
-        — try <strong>“emoji fire”</strong> or{" "}
-        <strong>“emoji thumbs up”</strong> too.
+        Hold <kbd className="keycap">{formatKey(currentKey)}</kbd> and speak.
       </p>
 
-      <textarea
-        ref={test.inputRef}
-        className="test-input"
-        value={test.text}
-        onChange={(e) => test.setText(e.target.value)}
-        placeholder="Hold your key and start talking…"
-        rows={4}
-      />
+      <div className="test-layout">
+        <div className="test-field">
+          <textarea
+            ref={test.inputRef}
+            className="test-input"
+            value={test.text}
+            onChange={(e) => test.setText(e.target.value)}
+            placeholder="Your words will show up here"
+            rows={4}
+            aria-label="Dictation test area"
+          />
+
+          <span
+            className={"test-pill " + (worked ? "test-pill-ok" : "")}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="test-pill-dot" />
+            {worked ? "Working" : "Listening for you"}
+          </span>
+        </div>
+
+        <p className="test-hint">
+          Try saying “search google for weather today” or “emoji heart”.
+          {showLanguageSwitchHint && (
+            <>
+              {" "}
+              Switch languages with <kbd className="keycap keycap-sm">Ctrl</kbd>{" "}
+              <kbd className="keycap keycap-sm">Shift</kbd>{" "}
+              <kbd className="keycap keycap-sm">L</kbd>.
+            </>
+          )}
+        </p>
+      </div>
 
       <StepActions
         onBack={onBack}
         onNext={onFinish}
-        nextLabel={saving ? "Finishing…" : "Finish setup →"}
+        nextLabel={saving ? "Finishing…" : "Finish setup"}
         backDisabled={saving}
         nextDisabled={saving}
       />
